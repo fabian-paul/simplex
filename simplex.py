@@ -197,6 +197,8 @@ def core_assignments(input_, vertices, f=0.5, return_n_inside=False):
     # if integrated into pyemma, will become a streamingestimatortransformer
     data = _source(input_)
 
+    ndim = vertices.shape[1]
+
     M = np.vstack((vertices.T, np.ones(vertices.shape[0])))
     lu_and_piv = sp.linalg.lu_factor(M)
 
@@ -207,7 +209,7 @@ def core_assignments(input_, vertices, f=0.5, return_n_inside=False):
     it = data.iterator(return_trajindex=True)
     with it:
         for itraj, chunk in it:
-            for i, x in enumerate(chunk):
+            for i, x in enumerate(chunk[:, 0:ndim]):
                 #l = np.linalg.solve(M, np.concatenate((x, [1])))
                 l = sp.linalg.lu_solve(lu_and_piv, np.concatenate((x, [1]))) # these are the memberships
                 # see https://en.wikipedia.org/wiki/Barycentric_coordinate_system#Conversion_between_barycentric_and_Cartesian_coordinates
@@ -252,7 +254,7 @@ def memberships(input_, vertices):
     it = data.iterator(return_trajindex=True)
     with it:
         for itraj, chunk in it:
-            for i, x in enumerate(chunk):
+            for i, x in enumerate(chunk[:, 0:ndim]):
                 #l = np.linalg.solve(M, np.concatenate((x, [1])))
                 m = sp.linalg.lu_solve(lu_and_piv, np.concatenate((x, [1]))) # these are the memberships
                 # see https://en.wikipedia.org/wiki/Barycentric_coordinate_system#Conversion_between_barycentric_and_Cartesian_coordinates
@@ -261,7 +263,7 @@ def memberships(input_, vertices):
     return memberships
 
 
-def find_vertices_inner_simplex(input_, return_means=False, f_centers=float('-inf'), return_log_volume=False, order_by_axis=True):
+def find_vertices_inner_simplex(input_, return_means=False, f_centers=float('-inf'), return_log_volume=False, order_by_axis=True, take_max_dims=float('inf')):
     r'''Find vertices of the "inner simplex". This is the old PCCA algorithm from Weber & Galliat 2002.
 
     parameters
@@ -277,6 +279,8 @@ def find_vertices_inner_simplex(input_, return_means=False, f_centers=float('-in
         whether to compute the volume of the simplex
     order_by_axis : bool, default = True
         order vertices (and means) by the IC they maximize
+    take_max_dims : integer, default = infinity
+        limit the number of dimenions in input_ to take_max_dim. By default use all dimensions.
 
     returns
     -------
@@ -296,7 +300,7 @@ def find_vertices_inner_simplex(input_, return_means=False, f_centers=float('-in
     # inner simplex algorithm (a.k.a. old PCCA, Weber & Galliat 2002) for large number of data points
     data = _source(input_)
 
-    dim = data.dimension()
+    dim = min(data.dimension(), take_max_dims)
 
     # First find the two most distant vertices. We use the following heuristic:
     # The two points with the largest separation in a simplex should be among those that 
@@ -317,8 +321,8 @@ def find_vertices_inner_simplex(input_, return_means=False, f_centers=float('-in
     print('pass 1')
     it = data.iterator(return_trajindex=False)
     with it:
-        for traj in it:
-            for x in traj:
+        for chunk in it:
+            for x in chunk[:, 0:dim]:
                 wh = x < minima
                 minima[wh] = x[wh]
                 min_pts[wh, :] = x
@@ -344,7 +348,7 @@ def find_vertices_inner_simplex(input_, return_means=False, f_centers=float('-in
         it = data.iterator(return_trajindex=False)
         with it:
             for chunk in it:
-                for frame in chunk:
+                for frame in chunk[:, 0:dim]:
                     d_candidate = np.linalg.norm(P.dot(frame-v0))
                     if d_candidate > d:
                         candidate = frame
@@ -363,7 +367,7 @@ def find_vertices_inner_simplex(input_, return_means=False, f_centers=float('-in
         it = data.iterator(return_trajindex=True)
         with it:
             for itraj, chunk in it:
-                for x, d in zip(chunk, dtrajs[itraj][it.pos:]):
+                for x, d in zip(chunk[:, 0:dim], dtrajs[itraj][it.pos:]):
                     counts[d] += 1
                     centers[d, :] += x
 
