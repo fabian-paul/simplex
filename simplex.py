@@ -130,8 +130,7 @@ class _MyDataInMemory(object):
                 raise ValueError('input trajectories must have same number of dimensions')
         self._trajs = input_
 
-    @property
-    def dim(self):
+    def dimension(self):
         return self._trajs[0].shape[1]
 
     def iterator(self, return_trajindex=False, stride=1):
@@ -297,7 +296,7 @@ def find_vertices_inner_simplex(input_, return_means=False, f_centers=float('-in
     # inner simplex algorithm (a.k.a. old PCCA, Weber & Galliat 2002) for large number of data points
     data = _source(input_)
 
-    dim = data.dim
+    dim = data.dimension()
 
     # First find the two most distant vertices. We use the following heuristic:
     # The two points with the largest separation in a simplex should be among those that 
