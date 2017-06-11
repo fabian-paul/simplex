@@ -112,6 +112,61 @@ def _vertex_order(vertices):
     return np.concatenate(([i0], others[order]))
 
 
+def _source(input_):
+    # for integration with pyemma
+    if isinstance(input_, (list, tuple, np.ndarray)):
+        return _MyDataInMemory(input_)
+    else: # assume that we have a source
+        return input_
+
+
+class _MyDataInMemory(object):
+    # for integration with pyemma
+    def __init__(self, input_):
+        if not isinstance(input_, (list, tuple)):
+            input_ = [ input_ ]
+        for traj in input_:
+            if traj.shape[1] != input_[0].shape[1]:
+                raise ValueError('input trajectories must have same number of dimensions')
+        self._trajs = input_
+
+    @property
+    def dim(self):
+        return self._trajs[0].shape[1]
+
+    def iterator(self, return_trajindex=False, stride=1):
+        return _MyDataInMemoryIterator(self._trajs, return_trajindex, stride)
+
+    def trajectory_lengths(self, stride=1):
+        return [t[::stride, :].shape[0] for t in self._trajs]
+
+
+class _MyDataInMemoryIterator(object):
+    # for integration with pyemma
+    def __init__(self, data, return_trajindex, stride):
+        self._data = data
+        self._pos = 0
+        self._stride = stride
+        self._return_trajindex = return_trajindex
+        self.pos = 0 # we always start at the beginning of a trajectory
+    def __iter__(self):
+        return self
+    def __enter__(self):
+        pass
+    def __exit__(self, *args):
+        pass
+    def next(self):
+        if self._pos < len(self._data):
+            i = self._pos
+            self._pos += 1
+            if self._return_trajindex:
+                return i, self._data[i][::self._stride, :]
+            else:
+                return self._data[i][::self._stride, :]
+        else:
+            raise StopIteration()
+
+
 def core_assignments(input_, vertices, f=0.5, return_n_inside=False):
     r"""Assign every row of input_ to that vertex to which is has the highest membership.
 
@@ -140,30 +195,71 @@ def core_assignments(input_, vertices, f=0.5, return_n_inside=False):
         n_inside : int
             number of points in input_ that are located inside the simplex
     """
-    if not isinstance(input_, (list, tuple)):
-        input_ = [ input_ ]
+    # if integrated into pyemma, will become a streamingestimatortransformer
+    data = _source(input_)
 
     M = np.vstack((vertices.T, np.ones(vertices.shape[0])))
     lu_and_piv = sp.linalg.lu_factor(M)
 
-    dtrajs = [ np.zeros(traj.shape[0], dtype=int)-1 for traj in input_ ]
+    dtrajs = [ np.zeros(l, dtype=int)-1 for l in data.trajectory_lengths() ]
 
     n_inside = 0
 
-    for traj, dtraj in zip(input_, dtrajs):
-        for i, x in enumerate(traj):
-            #l = np.linalg.solve(M, np.concatenate((x, [1])))
-            l = sp.linalg.lu_solve(lu_and_piv, np.concatenate((x, [1]))) # these are the memberships
-            # see https://en.wikipedia.org/wiki/Barycentric_coordinate_system#Conversion_between_barycentric_and_Cartesian_coordinates
-            if np.all(l>=0): n_inside += 1
-            j = np.argmax(l)
-            if l[j] > f:
-                dtraj[i] = j
+    it = data.iterator(return_trajindex=True)
+    with it:
+        for itraj, chunk in it:
+            for i, x in enumerate(chunk):
+                #l = np.linalg.solve(M, np.concatenate((x, [1])))
+                l = sp.linalg.lu_solve(lu_and_piv, np.concatenate((x, [1]))) # these are the memberships
+                # see https://en.wikipedia.org/wiki/Barycentric_coordinate_system#Conversion_between_barycentric_and_Cartesian_coordinates
+                if np.all(l>=0): n_inside += 1
+                j = np.argmax(l)
+                if l[j] > f:
+                    dtrajs[itraj][it.pos + i] = j
 
     if return_n_inside:
         return dtrajs, n_inside
     else:
         return dtrajs
+
+
+def memberships(input_, vertices):
+    r"""Computes the membership to all vertices for all frames in input trajectories.
+
+        parameters
+        ----------
+        input_ : list of np.ndarray((n_time_steps, n_dims))
+            the input data
+        vertices : np.ndarray((n_dims+1, n_dims))
+            coordiantes of the vertices
+
+        returns
+        -------
+        memberships
+
+        dtrajs : list of np.ndarray((n_time_steps, n_dims+1), dtype=int)
+            For every frame, memberships to all vertices.
+            In this algorithm (Weber & Galliat 2002), memberships can be negative.
+    """
+    data = _source(input_)
+
+    ndim = vertices.shape[1]
+
+    M = np.vstack((vertices.T, np.ones(vertices.shape[0])))
+    lu_and_piv = sp.linalg.lu_factor(M)
+
+    memberships = [ np.zeros((l, ndim+1)) for l in data.trajectory_lengths() ]
+
+    it = data.iterator(return_trajindex=True)
+    with it:
+        for itraj, chunk in it:
+            for i, x in enumerate(chunk):
+                #l = np.linalg.solve(M, np.concatenate((x, [1])))
+                m = sp.linalg.lu_solve(lu_and_piv, np.concatenate((x, [1]))) # these are the memberships
+                # see https://en.wikipedia.org/wiki/Barycentric_coordinate_system#Conversion_between_barycentric_and_Cartesian_coordinates
+                memberships[itraj][it.pos + i] = m
+
+    return memberships
 
 
 def find_vertices_inner_simplex(input_, return_means=False, f_centers=float('-inf'), return_log_volume=False, order_by_axis=True):
@@ -199,10 +295,9 @@ def find_vertices_inner_simplex(input_, return_means=False, f_centers=float('-in
         log of volume of the simplex after adding the n'th vertex. Starts with 3 vertices.
     '''
     # inner simplex algorithm (a.k.a. old PCCA, Weber & Galliat 2002) for large number of data points
-    if not isinstance(input_, (list, tuple)):
-        input_ = [ input_ ]
+    data = _source(input_)
 
-    dim = input_[0].shape[1]
+    dim = data.dim
 
     # First find the two most distant vertices. We use the following heuristic:
     # The two points with the largest separation in a simplex should be among those that 
@@ -221,14 +316,16 @@ def find_vertices_inner_simplex(input_, return_means=False, f_centers=float('-in
     #with it:
     #    for chunk in it:
     print('pass 1')
-    for traj in input_:
-        for x in traj:
-            wh = x < minima
-            minima[wh] = x[wh]
-            min_pts[wh, :] = x
-            wh = x > maxima
-            maxima[wh] = x[wh]
-            max_pts[wh, :] = x
+    it = data.iterator(return_trajindex=False)
+    with it:
+        for traj in it:
+            for x in traj:
+                wh = x < minima
+                minima[wh] = x[wh]
+                min_pts[wh, :] = x
+                wh = x > maxima
+                maxima[wh] = x[wh]
+                max_pts[wh, :] = x
 
     # Among all the points on the bounding box, pick the ones with largest separation.
     ext_pts = np.concatenate((max_pts, min_pts))
@@ -245,15 +342,14 @@ def find_vertices_inner_simplex(input_, return_means=False, f_centers=float('-in
         P = _projector(w, min_1=True)
         candidate = vertices[-1, :]
         d = 0.0
-        #it = input_.iterator()
-        #with it:
-        #    for chunk in it:
-        for traj in input_:
-            for frame in traj:
-                d_candidate = np.linalg.norm(P.dot(frame-v0))
-                if d_candidate > d:
-                    candidate = frame
-                    d = d_candidate
+        it = data.iterator(return_trajindex=False)
+        with it:
+            for chunk in it:
+                for frame in chunk:
+                    d_candidate = np.linalg.norm(P.dot(frame-v0))
+                    if d_candidate > d:
+                        candidate = frame
+                        d = d_candidate
         vertices = np.vstack((vertices, candidate))
 
     if order_by_axis:
@@ -265,10 +361,12 @@ def find_vertices_inner_simplex(input_, return_means=False, f_centers=float('-in
         centers = np.zeros((dim+1, dim))
         counts = np.zeros(dim+1, dtype=int)
         dtrajs = core_assignments(input_, vertices, f=f_centers)
-        for traj, dtraj in zip(input_, dtrajs):
-            for x, d in zip(traj, dtraj):
-                counts[d] += 1
-                centers[d, :] += x
+        it = data.iterator(return_trajindex=True)
+        with it:
+            for itraj, chunk in it:
+                for x, d in zip(chunk, dtrajs[itraj][it.pos:]):
+                    counts[d] += 1
+                    centers[d, :] += x
 
         centers /= counts[:, np.newaxis]
 
