@@ -154,7 +154,7 @@ class _MyDataInMemoryIterator(object):
         pass
     def __exit__(self, *args):
         pass
-    def next(self):
+    def __next__(self):
         if self._pos < len(self._data):
             i = self._pos
             self._pos += 1
@@ -163,7 +163,7 @@ class _MyDataInMemoryIterator(object):
             else:
                 return self._data[i][::self._stride, :]
         else:
-            raise StopIteration()
+            raise StopIteration
 
 
 def core_assignments(input_, vertices, f=0.5, return_n_inside=False):
