@@ -164,6 +164,7 @@ class _MyDataInMemoryIterator(object):
                 return self._data[i][::self._stride, :]
         else:
             raise StopIteration
+    next = __next__
 
 
 def core_assignments(input_, vertices, f=0.5, return_n_inside=False):
