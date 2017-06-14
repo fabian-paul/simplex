@@ -57,7 +57,7 @@ def product_tica(input_stage, lag, tica_args_stage_1={}, tica_args_stage_2={}, r
     returns
     -------
     depending on the value of return_stage_1:
-    * stage_1
+    * stage_2
     * (stage_1, stage_2)
 
     stage_1 :  a Pyemma TICA object
