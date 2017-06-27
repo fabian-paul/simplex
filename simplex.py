@@ -71,8 +71,10 @@ def _log_simplex_volume(vertices):
     G = np.linalg.cholesky(A.dot(A.T))
     #print('diagonal', np.diag(G))
     log_vol = np.log(np.diag(G)).sum() - sp.special.gammaln(dim+1)
-    assert np.allclose(log_vol, direct_1)
-    assert np.allclose(log_vol, direct_2)
+    if not np.allclose(log_vol, direct_1):
+        warnings.warn('optimized volume computation does not agree with direct implementation 1')
+    if not np.allclose(log_vol, direct_2):
+        warnings.warn('optimized volume computation does not agree with direct implementation 2')
     #print('stable', log_vol)
     return log_vol
 
@@ -374,10 +376,11 @@ def find_vertices_inner_simplex(input_, return_means=False, f_centers=float('-in
 
         centers /= counts[:, np.newaxis]
 
-    ordered_vertices = vertices[order, :]
-    log_volumes = [ ]
-    for i in range(3, dim+1):
-        log_volumes.append(_log_simplex_volume(ordered_vertices[0:i, :]))
+    if return_log_volume:
+        ordered_vertices = vertices[order, :]
+        log_volumes = [ ]
+        for i in range(3, dim+1):
+            log_volumes.append(_log_simplex_volume(ordered_vertices[0:i, :]))
 
     if return_means and return_log_volume:
         return vertices[order, :], centers[order, :], log_volumes
