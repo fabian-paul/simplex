@@ -847,10 +847,10 @@ def filter_out_short_core_visits(ctrajs, cutoff=1, fill=True, weak_cores=[]):
         Milestoning (core-to-core) trajectories. Unassigned time steps
         take negative values.
     cutoff : integer, default = 1
-        Visits of this length (or longer) are relabeled.
+        Visits of this length (or shorter) are relabeled.
     fill: boolean, default=True
-        If true, assign excursions from a core to the core before
-        removing short core visits. An excursion is a trajecotory
+        If true, assign excursions from a core back to the same core
+        before removing short core visits. An excursion is a trajectory
         piece [..., c, -1, -1,  -1, c, ...] with the same core c
         at the beginning and the end.
     weak_cores : list of integers
