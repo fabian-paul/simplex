@@ -52,7 +52,7 @@ def _projector(vectors, min_1=True):
 def _log_simplex_volume(vertices):
     if vertices.shape[1] > vertices.shape[0] - 1: # more dimensions than vertices
         #print('putting in plane')
-        # Replace vertices by the coordiantes of the vertics in the low-dimensional
+        # Replace vertices by the coordiantes of the vertices in the low-dimensional
         # space that they span.
         o, W = _othonormalize(vertices)
         vertices = (vertices-o).dot(W.T)
@@ -95,7 +95,7 @@ def _order_from_rank(rank):
 
 
 def _vertex_order(vertices):
-    # vertex #0 is the one that is closest to the origin of the coordiante system
+    # vertex #0 is the one that is closest to the origin of the coordinate system
     i0 = np.argmin(np.linalg.norm(vertices, axis=1))
     v0 = vertices[i0, :]
     others = np.concatenate((np.arange(0, i0), np.arange(i0+1, vertices.shape[0])))
@@ -277,8 +277,8 @@ def find_vertices_inner_simplex(input_, return_means=False, f_centers=float('-in
 
     parameters
     ----------
-    input_ : list of np.ndarray((n_time_steps, n_dims))
-        The input data. Chunking is not yet implemented but possible in principle.
+    input_ : list of np.ndarray((n_time_steps, n_dims)) or pyemma iterable
+        The input data.
     return_means : bool, default = False
         assign frames to cores and return the mean of each core
     f_centers : float, default = -inf
@@ -324,9 +324,6 @@ def find_vertices_inner_simplex(input_, return_means=False, f_centers=float('-in
     max_pts = np.empty((dim, dim))
 
     # first pass
-    #it = input_.iterator()
-    #with it:
-    #    for chunk in it:
     print('pass 1')
     it = data.iterator(return_trajindex=False)
     with it:
@@ -447,7 +444,7 @@ def thomson_problem(dim, n_elec, selftest=True, max_iter=100, return_energy=Fals
     assert dim>=3
 
     x0 = np.zeros((n_elec, dim))
-    # inital guess with v. Neumann method
+    # initial guess with v. Neumann method
     for i in range(n_elec):
         while True:
             r = (np.random.random_sample(dim)*2.0) - 1.0
@@ -597,7 +594,7 @@ def milestoning_count_matrix(dtrajs, lag=1, n_states=None, return_mass_matrix=Fa
         lag : int, default = 1
             the lag time
         n_states : int, optional
-            determines the shape of the retuned matrices. If None, use
+            determines the shape of the returned matrices. If None, use
             the maximum core index in dtrajs + 1.
         return_mass_matrix : bool, optional, default = False
             whether to compute and return the mass matrix (a. k. a. the
@@ -763,7 +760,7 @@ def _lifetimes(ctraj):
 
 def assign_transitions_to_cores(core_to_core_dtrajs, keep_ends_unassigned=True, weak_cores=[]):
     r"""Convert core-to-core trajecotories to conventional discrete
-    trajectories that formally mimick a full state space partitioning [1]_.
+    trajectories that formally mimic a full state space partitioning [1]_.
 
     Parameters
     ----------
@@ -776,7 +773,7 @@ def assign_transitions_to_cores(core_to_core_dtrajs, keep_ends_unassigned=True, 
     weak_cores : list of integers, optional, default = []
         The core whose indices are given in this list are not considered
         when assigning the transitions regions. That is the whole
-        transition is assigned to the other core involve in the transition.
+        transition is assigned to the other core involved in the transition.
 
     Returns
     -------
