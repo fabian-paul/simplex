@@ -169,7 +169,7 @@ class _MyDataInMemoryIterator(object):
     next = __next__
 
 
-def core_assignments(input_, vertices, f=0.5, return_n_inside=False):
+def core_assignments(input_, vertices, f=0.5, d=0.0, return_n_inside=False):
     r"""Assign every row of input_ to that vertex to which is has the highest membership.
 
         parameters
@@ -181,6 +181,12 @@ def core_assignments(input_, vertices, f=0.5, return_n_inside=False):
         f : float, default = 0.5
             Cut-off for the PCCA membership. Frames with a membership lower than f are left unassigned.
             f typically takes a value between 0 and 1.
+        d : float, default = 0.0
+            Cut-off for the PCCA membership. Let m be the largest membership of a frame and let m'
+            be the second-largest membership of the same frame (to a different vertex). Then the
+            frame is only assigned if m >= m' + d. (Typical choice of d could be 0.1)
+            This leaves unassigned stripes between cores. Useful for points far outside the simplex,
+            where cores defined solely by the f cut-off touch.
         return_n_inside : bool, default=False
             return the number of points in input_ that are located inside
             the simplex spanned by the vertices
@@ -217,8 +223,8 @@ def core_assignments(input_, vertices, f=0.5, return_n_inside=False):
                 l = sp.linalg.lu_solve(lu_and_piv, np.concatenate((x, [1]))) # these are the memberships
                 # see https://en.wikipedia.org/wiki/Barycentric_coordinate_system#Conversion_between_barycentric_and_Cartesian_coordinates
                 if np.all(l>=0): n_inside += 1
-                j = np.argmax(l)
-                if l[j] > f:
+                k, j = np.argsort(l)[-2:]
+                if l[j] > f and l[j] >= l[k] + d:
                     dtrajs[itraj][it.pos + i] = j
 
     if return_n_inside:
