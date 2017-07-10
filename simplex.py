@@ -127,6 +127,7 @@ class _MyDataInMemory(object):
     def __init__(self, input_):
         if not isinstance(input_, (list, tuple)):
             input_ = [ input_ ]
+        input_  = [ traj.reshape((-1, 1)) if traj.ndim==1 else traj for traj in input_ ]
         for traj in input_:
             if traj.shape[1] != input_[0].shape[1]:
                 raise ValueError('input trajectories must have same number of dimensions')
@@ -169,7 +170,7 @@ class _MyDataInMemoryIterator(object):
     next = __next__
 
 
-def core_assignments(input_, vertices, f=0.5, d=0.0, return_n_inside=False):
+def core_assignments(input_, vertices, f=0.6, d=0.0, return_n_inside=False):
     r"""Assign every row of input_ to that vertex to which is has the highest membership.
 
         parameters
