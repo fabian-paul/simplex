@@ -5,8 +5,9 @@ from itertools import combinations as _combinations
 class ProductMaker(_StreamingTransformer):
     def __init__(self, chunksize=1000, take_max_dim=float('inf')):
         super(ProductMaker, self).__init__(chunksize=chunksize)
-        if hasattr(self, '_estimated'):
-            self._estimated = True # work around bug in Pyemma
+
+        # TODO: known bug in StreamingTransformer class hierarchy constructor handling
+        self._estimated = True
         self._take_max_dim = take_max_dim
     def describe(self):
         return '[ buy my products! ]'
