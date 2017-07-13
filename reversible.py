@@ -3,6 +3,20 @@ import scipy as sp
 import scipy.sparse
 import msmtools
 
+def _eigendecomposition(C0, Ct, epsilon=1E-10):
+    U, s, V = np.linalg.svd(C0)
+    n = len(s) - np.searchsorted(s[::-1], epsilon)
+    if n == 0:
+        raise RuntimeError('All eigenvalues are smaller than %g, rank reduction would discard all dimensions.'%epsilon)
+    U = U[:, 0:n]
+    V = V[:, 0:n]
+    s = s[0:n]
+    Sinv = np.diag(1.0/s)
+    M = U.T.dot(Ct).dot(V)
+    K = M.dot(Sinv)
+    # TODO: to get the stationary vector we could use svd instead...
+    w, V = np.linalg.eig(K.T)
+    return w, U.dot(V) # an arbitrary representative...
 
 def _dtraj_correlation(a, b, lag=0, weights=None, sliding=True, sparse=False, nstates=None, skip=0, rskip=0, normalize=False, future_weights=False):
     # Adapted from msmtools.estimation.count_matrix
