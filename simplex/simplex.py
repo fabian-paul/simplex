@@ -16,7 +16,7 @@
 
 r"""PCCA for the TICA space and the splash projection.
 
-.. moduleauthor:: Fabian Paul <fab@zedat.fu-berlin.de>
+.. moduleauthor:: Fabian Paul <fab@zedat.fu-berlin.de>, Tim Hempel <tim.hempel@fu-berlin.de>
 
 """
 
