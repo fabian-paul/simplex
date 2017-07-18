@@ -1,0 +1,2 @@
+include versioneer.py
+include simplex/_version.py
