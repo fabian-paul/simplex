@@ -429,6 +429,63 @@ def find_vertices_inner_simplex(input_, return_means=False, f_centers=float('-in
     #f.value += 1
 
 
+def _membership_simplex_projection_singlevec(vec):
+    r"""
+    Implementation of canonical simplex projection by Chen & Ye, 2011, ArXiv:1101.6081v2
+    Projects n-dimensional data onto the canonical n-simplex
+    Parameters
+    ----------
+    vec: input vector
+    Returns projected vector
+    -------
+    """
+    idx_order = [np.where(np.sort(vec) == _elem)[0][0] for _elem in vec]
+    vec = np.sort(vec)
+
+    n = vec.shape[0]
+    i = n - 1
+
+    while i > 0:
+        t_i = (vec[i:].sum() - 1) / (n - i)
+        if t_i >= vec[i - 1]:
+            t = t_i
+            break
+
+        elif i >= 1:
+            i -= 1
+            continue
+
+    if i == 0:
+        t = (vec.sum() - 1) / n
+
+    x = (vec - t) * (vec - t > 0).astype(float)
+
+    return x[idx_order]
+
+
+def membership_simplex_projection(membership_trajs):
+    r"""
+    Project memberships onto canonical simplex to compute positive
+    membership trajs
+    Parameters
+    ----------
+    input_: membership trajectories
+    Returns positive defined membership trajectories
+    -------
+    """
+    data = _source(membership_trajs)
+    projection = [ np.zeros((l, data.dimension()), dtype=data.dtype) for l in data.trajectory_lengths() ]
+
+    it = data.iterator(return_trajindex=True)
+    with it:
+        for itraj, chunk in it:
+                for idx, y in enumerate(chunk):
+                    x = _membership_simplex_projection_singlevec(y)
+                    projection[itraj][it.pos + idx] = x
+
+    return projection
+
+
 def mds_projection(vertices, center=None, n_dim_target=2):
     r"""Compute a projection matrix that represents the MDS embedding of the vertices into n_dim_target dimensions.
 
