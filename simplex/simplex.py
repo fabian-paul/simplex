@@ -132,6 +132,7 @@ class _MyDataInMemory(object):
             if traj.shape[1] != input_[0].shape[1]:
                 raise ValueError('input trajectories must have same number of dimensions')
         self._trajs = input_
+        self.dtype = input_[0].dtype
 
     def dimension(self):
         return self._trajs[0].shape[1]
@@ -254,7 +255,7 @@ def core_assignment_given_memberships(memberships_, f=0.6, d=0.0):
     return dtrajs
 
 
-def memberships(input_, vertices):
+def memberships(input_, vertices, dtype=None):
     r"""Computes the membership to all vertices for all frames in input trajectories.
 
         parameters
@@ -263,6 +264,10 @@ def memberships(input_, vertices):
             the input data
         vertices : np.ndarray((n_dims+1, n_dims))
             coordiantes of the vertices
+        dtype : numpy data type, optional
+            select the data type for the memberships, allows to set
+            the precision, e. g. `np.float32` (to save memory)
+            default is the data type of the input data
 
         returns
         -------
@@ -273,13 +278,15 @@ def memberships(input_, vertices):
             In this algorithm (Weber & Galliat 2002), memberships can be negative.
     """
     data = _source(input_)
+    if dtype is None:
+        dtype = data.dtype
 
     ndim = vertices.shape[1]
 
     M = np.vstack((vertices.T, np.ones(vertices.shape[0])))
     lu_and_piv = sp.linalg.lu_factor(M)
 
-    memberships = [ np.zeros((l, ndim+1)) for l in data.trajectory_lengths() ]
+    memberships = [ np.zeros((l, ndim+1), dtype=dtype) for l in data.trajectory_lengths() ]
 
     it = data.iterator(return_trajindex=True)
     with it:
