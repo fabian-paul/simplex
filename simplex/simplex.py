@@ -650,6 +650,49 @@ def splash_corner_projection(vertices, center=0, n_dim_target=2, max_iter=100):
         raise Exception('n_dim must be an integer > 1')
     return np.linalg.inv(W).dot(L), o
 
+
+def membership_ring_projection(n_vertices):
+    r"""Similar to splash_corner_projection but for memberships.
+    """
+    L = np.empty((n_vertices, 2))
+    for i in range(n_vertices):
+        L[i, 0] = np.sin(2.0*np.pi*i/float(n_vertices))
+        L[i, 1] = np.cos(2.0*np.pi*i/float(n_vertices))
+    return L
+
+
+def softmax(membership_trajs, beta=1):
+    r"""Softmax function exp(beta*m_i)/[sum_j exp(beta*m_j)]
+
+    Parameters
+    ----------
+    membership_trajs: list of np.ndarray((n_time_steps_i, n_dims)) or pyemma iterable
+        membership trajectories
+    beta : float or np.ndarray(n_dims)
+        the factor beta in the softmax function exp(beta*m_i)/[sum_j exp(beta*m_j)]
+
+    Returns
+    -------
+    list of np.ndarray((n_time_steps_i, n_dims))
+    """
+    data = _source(membership_trajs)
+
+    beta = np.array(beta)
+    if beta.ndim==0:
+        beta = np.ones(data.dimension())*beta
+
+    transformed = [ np.zeros((l, data.dimension()), dtype=data.dtype) for l in data.trajectory_lengths() ]
+
+    it = data.iterator(return_trajindex=True)
+    with it:
+        for itraj, chunk in it:
+            smax = np.exp(beta[np.newaxis, :]*chunk)
+            norm = smax.sum(axis=1)
+            transformed[itraj][it.pos:it.pos+chunk.shape[0]] = smax / norm[:, np.newaxis]
+
+    return transformed
+
+
 def _past(ctraj):
     past = np.zeros(len(ctraj), dtype=int)
     last_s = ctraj[0]
