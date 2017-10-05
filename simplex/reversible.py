@@ -16,7 +16,10 @@ def _eigendecomposition(C0, Ct, epsilon=1E-10):
     K = M.dot(Sinv)
     # TODO: to get the stationary vector we could use svd instead...
     w, V = np.linalg.eig(K.T)
-    return w, U.dot(V) # an arbitrary representative...
+    order = np.argsort(np.real(w))
+    w = w[order]
+    V = V[:, order]
+    return w, U.dot(V) # an arbitrary representative of the eigenvectors...
 
 def _dtraj_correlation(a, b, lag=0, weights=None, sliding=True, sparse=False, nstates=None, skip=0, rskip=0, normalize=False, future_weights=False):
     # Adapted from msmtools.estimation.count_matrix
@@ -144,7 +147,28 @@ def simple_reversible_milestoning(ctrajs, lag=1):
     C = msmtools.estimation.largest_connected_submatrix(C, directed=True).toarray()
     return msmtools.estimation.tmatrix(C, reversible=True)
 
-# TODO: offer some option for computing the eigendecomposition
+def milestoning(ctrajs, lag=1):
+    v = _is_valid(ctrajs, lag=lag)
+    ctrajs = _restrict_to_valid(v, ctrajs)
+    p = _past(ctrajs)
+    f = _future(ctrajs)
+    assert np.all(np.concatenate(p)>=0)
+    assert np.all(np.concatenate(f)>=0)
+
+    C00 = _dtraj_correlation(p, f, rskip=lag)
+    Ctt = _dtraj_correlation(p, f, skip=lag)
+    C0t = _dtraj_correlation(p, f, lag=lag)
+    assert C0t.sum() == C00.sum() == Ctt.sum()
+
+    cset = msmtools.estimation.largest_connected_set(C0t, directed=True)
+    C00 = C00[cset, :][:, cset]
+    C0t = C0t[cset, :][:, cset]
+    Ctt = Ctt[cset, :][:, cset]
+
+    K = np.linalg.inv(C00).dot(C0t)
+
+    return K, C00, C0t, Ctt
+
 
 def reversible_milestoning(ctrajs, dtrajs=None, lag=1, counting_mode='forward', return_Ct=False):
     v = _is_valid(ctrajs, lag=lag)
