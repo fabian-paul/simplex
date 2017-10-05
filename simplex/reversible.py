@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 import scipy as sp
 import scipy.sparse
@@ -210,14 +211,14 @@ def reversible_milestoning(ctrajs, dtrajs=None, lag=1, counting_mode='forward', 
     u_cset = np.linalg.solve(G, b)
     u_full = np.zeros(max(np.max(d) for d in dtrajs) + 1)
     u_full[cset] = u_cset
-    print u_full
+    print(u_full)
 
     w = [ u_full[d] for d in dtrajs ]
-    print np.concatenate(w).sum()/len(np.concatenate(w)),
+    print(np.concatenate(w).sum()/len(np.concatenate(w)),end='')
     if not np.allclose(np.concatenate(w).sum()/len(np.concatenate(w)), 1):
-        print 'warning'
+        print('warning')
     else:
-        print
+        print('')
     if counting_mode=='forward':
         # TODO: derive some way for symmetrizing and keeping the eigenvalue 1
         C0_forw = _dtraj_correlation(p, f, weights=w, normalize=True, rskip=lag)
