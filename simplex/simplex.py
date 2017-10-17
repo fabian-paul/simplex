@@ -1044,6 +1044,89 @@ def life_time_distributions(ctrajs, fill=True):
     return hist
 
 
+def scatter_mem(memberships, ctrajs=None, selection=range(0, 4), center=True, ax=None, max_plot=10000, scatter_kwargs={'s':5}):
+    r'''Show 2-D scatter plot of memberships
+
+    Parameters
+    ----------
+    memberships : list of ndarray((T_i, N))
+        memberships off all frames to all N vertices
+
+    ctrajs : list of ndarray((T_i,), dtype=int)
+        discrete trajectories, unassigned frames should take negative values
+
+    selection : list or range
+        selection of cores to show with colors
+
+    center : boolean, default = True
+        If true, plot frames that belong to the non-selected cores
+        around the coordiante origin in the scatter plot.
+        If false, allocate a sector on the unit disc to plot
+        all frames that belong to non-selected cores.
+
+    ax : pyplot.axes object or None
+
+    max_plot : integer
+         limit number of points plotted for each core to max_plot
+         (prevents pyplot from crashing due to memory errors)
+
+    scatter_kwargs : dict
+         dictionary of keyword arguments that are passed to plt.scatter
+    '''
+    import matplotlib.pyplot as plt
+    #if ctrajs is None:
+    #    import simplex
+    #    ctrajs = simplex.core_assignment_given_memberships(memberships, f=0.6, d=0.1)
+
+    N = memberships[0].shape[1]
+    X = np.zeros(N)
+    Y = np.zeros(N)
+    n = len(selection)
+    if not center and n<N:
+        n+=1
+    assert n<=N
+    for i, j in enumerate(selection):
+        X[j] = np.sin(i*(2.0*np.pi/n))
+        Y[j] = np.cos(i*(2.0*np.pi/n))
+    if not center:
+        for i in range(N):
+            if i not in selection:
+                X[i] = np.sin((n-1)*(2.0*np.pi/n))
+                Y[i] = np.cos((n-1)*(2.0*np.pi/n))
+
+    colors = ['darkcyan', 'orange', 'darkgreen', 'red', 'black', 'purple', 'lime']
+
+    if ax is None:
+        ax = plt.gca()
+
+    # scatter selected
+    for i, col in zip(selection, colors):
+        n_frames = sum([np.count_nonzero(c==i) for c in ctrajs])
+        stride = max(n_frames // max_plot, 1)
+        wh = [ np.where(c==i)[0][::stride] for c in ctrajs ]
+        x = np.concatenate([ m[w, :].dot(X) for m, w in zip(memberships, wh) ])
+        y = np.concatenate([ m[w, :].dot(Y) for m, w in zip(memberships, wh) ])
+        ax.scatter(x, y, c=col, **scatter_kwargs)
+
+    # scatter the rest
+    for i in range(N):
+        if i not in selection:
+            n_frames = sum([np.count_nonzero(c==i) for c in ctrajs])
+            stride = max(n_frames // max_plot, 1)
+            wh = [ np.where(c==i)[0][::stride] for c in ctrajs ]
+            x = np.concatenate([ m[w, :].dot(X) for m, w in zip(memberships, wh) ])
+            y = np.concatenate([ m[w, :].dot(Y) for m, w in zip(memberships, wh) ])
+            ax.scatter(x, y, c='gray', **scatter_kwargs)
+
+    # add labels
+    for s in selection:
+        plt.text(X[s], Y[s], str(s))
+    if len(selection) < N:
+        if not center:
+            plt.text(np.sin((n-1)*(2.0*np.pi/n)), np.cos((n-1)*(2.0*np.pi/n)), 'rest')
+        else:
+            plt.text(0, 0, 'rest')
+
 ## workflow for visualization:
 # vertices = find_vertices_inner_simplex(data)
 # P, o = corner_projection(vertices, n_dim=2)
