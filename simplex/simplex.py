@@ -750,7 +750,7 @@ def milestoning_count_matrix(dtrajs, lag=1, n_states=None, return_mass_matrix=Fa
 
     References
     ----------
-    .. [1] Ch. Schuette & M. Sarich, Eur. Phys. J. Spec. Top. 244, 245 (2005)
+    .. [1] Ch. Schuette & M. Sarich, Eur. Phys. J. Spec. Top. 244, 2445 (2015)
     """
     import warnings
     warnings.warn('Milestoning code is not thoroughly tested, to be safe, please use pyemma.')
@@ -1044,7 +1044,7 @@ def life_time_distributions(ctrajs, fill=True):
     return hist
 
 
-def scatter_mem(memberships, ctrajs=None, selection=range(0, 4), center=True, ax=None, max_plot=10000, scatter_kwargs={'s':5}):
+def scatter_mem(memberships, ctrajs=None, selection=range(0, 4), center=True, ax=None, max_plot=10000, scatter_kwargs={'s':5}, decoration=False):
     r'''Show 2-D scatter plot of memberships
 
     Parameters
@@ -1099,6 +1099,14 @@ def scatter_mem(memberships, ctrajs=None, selection=range(0, 4), center=True, ax
     if ax is None:
         ax = plt.gca()
 
+    if decoration:
+        ax.add_artist(plt.Circle((0, 0), 1.0, color='gray', fill=False))
+        for i in range(n):
+            x = np.sin((i+0.5)*(2.0*np.pi/n))
+            y = np.cos((i+0.5)*(2.0*np.pi/n))
+            ax.add_line(plt.Line2D([0.0, x], [0.0, y], color='gray'))
+            ax.set_aspect('equal')
+
     # scatter selected
     for i, col in zip(selection, colors):
         n_frames = sum([np.count_nonzero(c==i) for c in ctrajs])
@@ -1107,6 +1115,7 @@ def scatter_mem(memberships, ctrajs=None, selection=range(0, 4), center=True, ax
         x = np.concatenate([ m[w, :].dot(X) for m, w in zip(memberships, wh) ])
         y = np.concatenate([ m[w, :].dot(Y) for m, w in zip(memberships, wh) ])
         ax.scatter(x, y, c=col, **scatter_kwargs)
+        #ax.scatter(np.arctan2(x, y), (x*x+y*y)**0.5, c=col, **scatter_kwargs)
 
     # scatter the rest
     for i in range(N):
@@ -1117,6 +1126,7 @@ def scatter_mem(memberships, ctrajs=None, selection=range(0, 4), center=True, ax
             x = np.concatenate([ m[w, :].dot(X) for m, w in zip(memberships, wh) ])
             y = np.concatenate([ m[w, :].dot(Y) for m, w in zip(memberships, wh) ])
             ax.scatter(x, y, c='gray', **scatter_kwargs)
+            ##ax.scatter(np.arctan2(x, y), (x*x+y*y)**0.5, c='gray', **scatter_kwargs)
 
     # add labels
     for s in selection:
@@ -1126,6 +1136,21 @@ def scatter_mem(memberships, ctrajs=None, selection=range(0, 4), center=True, ax
             plt.text(np.sin((n-1)*(2.0*np.pi/n)), np.cos((n-1)*(2.0*np.pi/n)), 'rest')
         else:
             plt.text(0, 0, 'rest')
+
+    return ax
+
+def pcca_score(memberships, autocorrect=True):
+    r'''See Roeblitz, Weber, Adv. Data. Anal. Classif. 7, 147 (2013)
+    '''
+    # TODO: think about doing this with ctrajs + direct assigment + milestoning
+    # ctrajs -> cov, direct -> diagonal pi (alternative: use past)
+    if autocorrect:
+        if np.any(m<0 for m in memberships) or np.any(m>1 for m in memberships):
+            memberships = membership_simplex_projection(memberships)
+    nc = memberships[0].shape[1]
+    D2c_inv = np.diag(1./sum(m.sum(axis=0) for m in memberships))
+    chit_D2_chi = sum(m.T.dot(m) for m in memberships)
+    return nc - np.trace(D2c_inv.dot(chit_D2_chi))
 
 ## workflow for visualization:
 # vertices = find_vertices_inner_simplex(data)
