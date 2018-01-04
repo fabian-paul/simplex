@@ -23,3 +23,5 @@ class TestMemberships(unittest.TestCase):
             assert np.all(m <= 1.0 + eps)
             np.testing.assert_allclose(m.sum(axis=1), 1)
 
+if __name__ == '__main__':
+    unittest.main()
