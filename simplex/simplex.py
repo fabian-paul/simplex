@@ -125,7 +125,7 @@ def _source(input_):
 class _MyDataInMemory(object):
     # for integration with pyemma
     def __init__(self, input_):
-        if not isinstance(input_, (list, tuple)):
+        if not isinstance(input_, (list, tuple)) and not (isinstance(input_, np.ndarray) and input_.dtype==np.dtype('O') and input_.dim==1):
             input_ = [ input_ ]
         input_  = [ traj.reshape((-1, 1)) if traj.ndim==1 else traj for traj in input_ ]
         for traj in input_:
