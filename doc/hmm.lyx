@@ -1,0 +1,918 @@
+#LyX 2.2 created this file. For more info see http://www.lyx.org/
+\lyxformat 508
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+Hidden Markov models in TICA spaces with the simplex property
+\end_layout
+
+\begin_layout Section
+Preliminaries: Max-Entropy estimation of the multinomial logistic regression
+ model
+\end_layout
+
+\begin_layout Standard
+Let 
+\begin_inset Formula $p_{i}(t)$
+\end_inset
+
+ be known probabilities.
+ We want to approximate 
+\begin_inset Formula $p_{i}(t)$
+\end_inset
+
+ with the following multinomial model
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\varrho_{i}(t)=\frac{\exp\left[\boldsymbol{\theta}_{i}\cdot\mathbf{z}(t)\right]}{\sum_{k}\exp\left[\boldsymbol{\theta}_{k}\cdot\mathbf{z}(t)\right]}
+\]
+
+\end_inset
+
+where 
+\begin_inset Formula $\mathbf{\mathbf{z}}(t)\in\mathbb{R}^{n}$
+\end_inset
+
+ are tICS (which we assume as fixed and given) and 
+\begin_inset Formula $\boldsymbol{\theta}_{i}\in\mathbb{R}^{n}$
+\end_inset
+
+ are free parameters.
+ 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+Constant eigenfunction:
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Formula $\varrho_{i}(t)=\frac{\exp\left[\boldsymbol{\theta}_{i}\cdot\mathbf{z}(t)\right]}{\sum_{k}\exp\left[\boldsymbol{\theta}_{k}\cdot\mathbf{z}(t)\right]}=\frac{\exp\left[\boldsymbol{\theta}_{i}\cdot\mathbf{z}(t)\right]\exp\left[\theta_{i,1}\right]}{\sum_{k}\exp\left[\boldsymbol{\theta}_{k}\cdot\mathbf{z}(t)\right]\exp\left[\theta_{k,1}\right]}=\frac{c_{i}\exp\left[\boldsymbol{\theta}_{i}\cdot\mathbf{z}(t)\right]}{\sum_{k}c_{k}\exp\left[\boldsymbol{\theta}_{k}\cdot\mathbf{z}(t)\right]}$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+The approximation 
+\begin_inset Formula $p_{i}(t)\approx\varrho_{i}(t)$
+\end_inset
+
+ is implemented by minimizing the Kullback-Leibler divergence between 
+\begin_inset Formula $p_{i}(t)$
+\end_inset
+
+ and 
+\begin_inset Formula $\varrho_{i}(t)$
+\end_inset
+
+
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+@inproceedings{Malouf::, 
+\end_layout
+
+\begin_layout Plain Layout
+author = {Malouf, Robert}, 
+\end_layout
+
+\begin_layout Plain Layout
+title = {A comparison of algorithms for maximum entropy parameter estimation},
+ 
+\end_layout
+
+\begin_layout Plain Layout
+booktitle= {Sixth Conf.
+ on Natural Language Learning (CoNLL}, 
+\end_layout
+
+\begin_layout Plain Layout
+volume = {6}, 
+\end_layout
+
+\begin_layout Plain Layout
+year = {2002}, 
+\end_layout
+
+\begin_layout Plain Layout
+pages = {49–55}, 
+\end_layout
+
+\begin_layout Plain Layout
+doi={}
+\end_layout
+
+\begin_layout Plain Layout
+}
+\end_layout
+
+\end_inset
+
+, 
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+Maximum log likelihood gives the same result: 
+\begin_inset Formula $\sum_{i,t}p_{i}(t)\log\varrho_{i}(t)$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\begin_inset Formula 
+\[
+D_{\mathrm{KL}}\left[\mathbf{p},\boldsymbol{\varrho}\right]=\sum_{i,t}p_{i}(t)\log\frac{p_{i}(t)}{\varrho_{i}(t)}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+\begin_inset Formula 
+\begin{align*}
+D_{\mathrm{KL}}\left[\mathbf{p},\boldsymbol{\varrho}\right] & \propto-\sum_{i,t}p_{i}(t)\log\varrho_{i}(t)=-\sum_{i,t}p_{i}(t)\left\{ \boldsymbol{\theta}_{i}\cdot\mathbf{z}(t)+\theta_{i,1}-\log\left[\sum_{k}c_{k}\exp\left[\boldsymbol{\theta}_{k}\cdot\mathbf{z}(t)\right]\right]\right\} \\
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+The gradient of 
+\begin_inset Formula $D_{\mathrm{KL}}$
+\end_inset
+
+ w.
+\begin_inset space ~
+\end_inset
+
+r.
+\begin_inset space ~
+\end_inset
+
+t.
+ the parameters 
+\begin_inset Formula $\boldsymbol{\theta}_{j}$
+\end_inset
+
+ is
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+\begin_inset Formula $(\nabla_{\boldsymbol{\theta}_{j}}f_{i})_{k}:=\frac{\partial f_{i}}{\partial\theta_{jk}}$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align*}
+\nabla_{\boldsymbol{\theta}_{j}}D_{\mathrm{KL}}\left[p_{i}(t),\varrho_{i}(t)\right] & =\\
+-\nabla_{\boldsymbol{\theta}_{j}}\sum_{i,t}p_{i}(t)\left\{ \boldsymbol{\theta}_{i}\cdot\mathbf{z}(t)-\log\left[\sum_{k}\exp\left(\boldsymbol{\theta}_{k}\cdot\mathbf{z}(t)\right)\right]\right\}  & +\nabla_{\boldsymbol{\theta}_{j}}\sum_{i,t}p_{i}(t)\log p_{i}(t)=\\
+-\sum_{t}p_{j}(t)\mathbf{z}(t)+\sum_{t,i}p_{i}(t)\frac{\mathbf{z}(t)\exp(\boldsymbol{\theta}_{j}\cdot\mathbf{z}(t))}{\sum_{k}\exp(\boldsymbol{\theta}_{k}\cdot\mathbf{z}(t))} & +const=\\
+-\sum_{t}p_{j}(t)\mathbf{z}(t)+\sum_{t}\frac{\mathbf{z}(t)\exp(\boldsymbol{\theta}_{j}\cdot\mathbf{z}(t))}{\sum_{k}\exp(\boldsymbol{\theta}_{k}\cdot\mathbf{z}(t))} & =\\
+-\mathbb{E}_{p_{j}}(\mathbf{z})+\mathbb{E}_{\varrho_{j}}(\mathbf{z}) & =\\
+\sum_{t}\left[\varrho_{j}(t)-p_{j}(t)\right]\mathbf{z}(t) & .
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+Second derivative applied to a matrix 
+\begin_inset Formula $\mathbf{W}=(\mathbf{w}_{1}\mid\ldots\mid\mathbf{w}_{n})$
+\end_inset
+
+:
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Formula $\sum_{i}\mathbf{w}_{i}\cdot\nabla_{\boldsymbol{\theta}_{i}}\mathbb{E}_{\varrho_{j}}(\mathbf{z})=\sum_{i}\mathbf{w}_{i}\cdot\nabla_{\boldsymbol{\theta}_{i}}\sum_{t}\frac{\mathbf{z}(t)\exp(\boldsymbol{\theta}_{j}\cdot\mathbf{z}(t))}{\sum_{k}\exp(\boldsymbol{\theta}_{k}\cdot\mathbf{z}(t))}=\sum_{t,i}\frac{\delta_{ij}\mathbf{\mathbf{w}}_{i}\cdot\mathbf{z}(t)\mathbf{z}(t)\exp(\boldsymbol{\theta}_{j}\cdot\mathbf{z}(t))}{\sum_{k}\exp(\boldsymbol{\theta}_{k}\cdot\mathbf{z}(t))}-\sum_{t,i}\frac{\mathbf{\mathbf{w}}_{i}\cdot\mathbf{z}(t)\mathbf{z}(t)\exp(\boldsymbol{\theta}_{j}\cdot\mathbf{z}(t))\exp(\boldsymbol{\theta}_{i}\cdot\mathbf{z}(t))}{\left[\sum_{k}\exp(\boldsymbol{\theta}_{k}\cdot\mathbf{z}(t))\right]^{2}}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Formula $0=...+\sum_{t,i}\frac{\mathbf{w}_{i}\cdot\mathbf{z}(t)\mathbf{z}(t)\exp\left[(\boldsymbol{\theta}_{j}+\boldsymbol{\theta}_{i})\cdot\mathbf{z}(t)\right]}{\left[\sum_{k}\exp(\boldsymbol{\theta}_{k}\cdot\mathbf{z}(t))\right]^{2}}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+TODO: check this
+\end_layout
+
+\end_inset
+
+Use BFGS or CG method to minimize the function.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\mathbb{E}_{p_{j}}(\mathbf{z})$
+\end_inset
+
+ is something like the hidden state center in the TICA space.
+\end_layout
+
+\begin_layout Section
+Preliminaries II: the simplex and initialization of the HMM (incomplete
+ wrong?)
+\end_layout
+
+\begin_layout Standard
+Formulation used in the neural network
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+y_{j}=\frac{\exp\left[\sum_{i}W_{ij}x_{i}+b_{j}\right]}{\sum_{k}\exp\left[\sum_{i}W_{ik}x_{i}+b_{k}\right]}
+\]
+
+\end_inset
+
+Formulation used in the unmixing model (simplex PCCA'02)
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+m_{j}=\sum_{i}^{n-1}A_{ji}x_{i}+A_{jn}
+\]
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+A=\begin{pmatrix}\mathbf{v}_{1} & \mid & ... & \mid & \mathbf{v}_{n}\\
+1 & \mid & ... & \mid & 1
+\end{pmatrix}^{-1}=(\mathbf{u}_{1}\mid...\mid\mathbf{u}_{n})^{-1}
+\]
+
+\end_inset
+
+Softmax-unmixing model (model introduced here)
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+y_{j}=\frac{\exp\left[\alpha_{j}m_{j}\right]}{\sum_{k}\exp\left[\alpha_{k}m_{k}\right]}=\frac{\exp\left[\sum_{i}\alpha_{j}A_{ji}x_{i}+\alpha_{j}A_{jn}\right]}{\sum_{k}\exp\left[\sum_{i}\alpha_{k}A_{ki}x_{i}+\alpha_{k}A_{jn}\right]}
+\]
+
+\end_inset
+
+For the initialization set 
+\begin_inset Formula $\alpha_{i}=1$
+\end_inset
+
+.
+ Therefore 
+\begin_inset Formula $\sum_{i}A_{ji}x_{i}+A_{jn}=\sum_{i}W_{ij}x_{i}+b_{j}$
+\end_inset
+
+ for all 
+\begin_inset Formula $x$
+\end_inset
+
+, from which follows 
+\begin_inset Formula $A_{jn}=b_{j}$
+\end_inset
+
+ and 
+\begin_inset Formula $A_{ji}=W_{ij}$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Subsection
+For recovering the parameters:
+\end_layout
+
+\begin_layout Paragraph
+way 1:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\sum_{i}\beta_{j}A_{ji}x_{i}+\beta_{j}A_{jn}=\sum_{i}W_{ij}x_{i}+b_{j}$
+\end_inset
+
+ for all 
+\begin_inset Formula $x$
+\end_inset
+
+, from which follows 
+\begin_inset Formula $\beta_{j}A_{jn}=b_{j}$
+\end_inset
+
+ and 
+\begin_inset Formula $\beta_{j}A_{ji}=W_{ij}$
+\end_inset
+
+.
+ Define 
+\begin_inset Formula $U=(W^{T}\mid\mathbf{b})$
+\end_inset
+
+; 
+\begin_inset Formula $BA=U\Leftrightarrow A=B^{-1}U$
+\end_inset
+
+ use constraint 
+\begin_inset Formula $A^{-T}\mathbf{e}_{n}=\mathbf{1}$
+\end_inset
+
+;
+\family roman
+\series medium
+\shape up
+\size normal
+\emph off
+\bar no
+\strikeout off
+\uuline off
+\uwave off
+\noun off
+\color none
+ 
+\begin_inset Formula $BU^{-T}\mathbf{e}_{n}=\mathbf{1}\Leftrightarrow U^{-T}\mathbf{e}_{n}=B^{-1}\mathbf{1}=\boldsymbol{\beta}_{\mathrm{inv}}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\Rightarrow\beta_{i}=1/(U^{-T})_{in}$
+\end_inset
+
+ 
+\begin_inset Formula $B^{-1}=\mathrm{diag}(U^{-T})_{:n}$
+\end_inset
+
+
+\family roman
+\series medium
+\shape up
+\size normal
+\emph off
+\bar no
+\strikeout off
+\uuline off
+\uwave off
+\noun off
+\color none
+, 
+\begin_inset Formula $A=B^{-1}U$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Paragraph*
+way 2:
+\end_layout
+
+\begin_layout Standard
+set 
+\begin_inset Formula $\alpha_{i}=1$
+\end_inset
+
+; Define 
+\begin_inset Formula $U=(W^{T}\mid\mathbf{b})$
+\end_inset
+
+;
+\family roman
+\series medium
+\shape up
+\size normal
+\emph off
+\bar no
+\strikeout off
+\uuline off
+\uwave off
+\noun off
+\color none
+ 
+\begin_inset Formula $A=U$
+\end_inset
+
+
+\family default
+\series default
+\shape default
+\size default
+\emph default
+\bar default
+\strikeout default
+\uuline default
+\uwave default
+\noun default
+\color inherit
+; 
+\begin_inset Formula $V=A^{-1}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+The memberships are computed with 
+\begin_inset Formula $m_{i}=\boldsymbol{\theta}_{i}^{\ast}\mathbf{z}$
+\end_inset
+
+.
+ The parameters 
+\begin_inset Formula $\boldsymbol{\theta}_{i}^{\ast}$
+\end_inset
+
+ are found by solving the following the set of equations 
+\begin_inset Formula $\mathbf{e}_{i}=(\boldsymbol{\theta}_{1}^{\ast}\mid\ldots\mid\boldsymbol{\theta}_{n}^{\ast})^{T}\mathbf{v}_{i}$
+\end_inset
+
+ where 
+\begin_inset Formula $\mathbf{v}_{i}\in\mathbb{R}^{n+1}$
+\end_inset
+
+ is the vertex 
+\begin_inset Formula $i$
+\end_inset
+
+ in tICA space and 
+\begin_inset Formula $\mathbf{e}_{i}$
+\end_inset
+
+ is the 
+\begin_inset Formula $i$
+\end_inset
+
+'th canonical unit vector.
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+TODO: check this
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+Rewriting this set of equations in matrix form gives 
+\begin_inset Formula 
+\[
+(\mathbf{e}_{1}\mid\ldots\mid\mathbf{e}_{n})=(\boldsymbol{\theta}_{1}^{\ast}\mid\ldots\mid\boldsymbol{\theta}_{n}^{\ast})^{T}(\mathbf{v}_{1}\mid\ldots\mid\mathbf{v}_{n}).
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Formula 
+\[
+\delta_{ij}=\sum_{k}\theta_{ki}^{\ast}v_{kj}
+\]
+
+\end_inset
+
+really???
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+TODO: compute initial 
+\begin_inset Formula $b_{i}(t)$
+\end_inset
+
+ using this algorithm.
+ Compute initial 
+\begin_inset Formula $T$
+\end_inset
+
+ with Hummer-Buchete algorithm or just with a plain MSM or with fuzzy corse
+ graining [TODO: which variant?] using 
+\begin_inset Formula $b_{i}(t)$
+\end_inset
+
+ or ...; compute initial 
+\begin_inset Formula $\pi_{i}$
+\end_inset
+
+ using which algorithm?
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+post hoc transformation: preservation of normalization
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Formula $\sum_{i}m_{i}=1$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Formula $w_{i}=\sum_{j}A_{ij}m_{j}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Formula $\sum_{i}w_{i}=1$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+..
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Formula $1=\sum_{i}\sum_{j}A_{ij}m_{j}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+assume 
+\begin_inset Formula $\sum_{i}A_{ij}=1$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Formula $1=\sum_{j}m_{j}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Formula $A$
+\end_inset
+
+ has to fulfill the constraints of a transition matrix.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Extended EM algorithm
+\end_layout
+
+\begin_layout Paragraph*
+expectation step
+\end_layout
+
+\begin_layout Enumerate
+maximize 
+\begin_inset Formula $D_{\mathrm{KL}}\left[\gamma_{i}(t),\varrho_{i}(t)\right]$
+\end_inset
+
+ w.
+\begin_inset space ~
+\end_inset
+
+r.
+\begin_inset space ~
+\end_inset
+
+t.
+ to all 
+\begin_inset Formula $\boldsymbol{\theta}_{i}$
+\end_inset
+
+ for 
+\begin_inset Formula $i=1,\ldots,N$
+\end_inset
+
+ where 
+\begin_inset Formula $\gamma_{i}(t)$
+\end_inset
+
+ is the HMM probability 
+\begin_inset Formula $\mathbb{P}(q=s_{i}\mid O,\lambda)$
+\end_inset
+
+ in the notation of Rabbiner.
+\end_layout
+
+\begin_layout Enumerate
+Let 
+\begin_inset Formula $\mathbb{P}(\mathbf{x}(t))=const$
+\end_inset
+
+, e.
+\begin_inset space ~
+\end_inset
+
+g.
+ by using some clustering that puts every 
+\begin_inset Formula $\mathbf{x}(t)$
+\end_inset
+
+ in its own cluster (with 
+\begin_inset Quotes eld
+\end_inset
+
+cluster center
+\begin_inset Quotes erd
+\end_inset
+
+ 
+\begin_inset Formula $\mathbf{x}_{i}=\mathbf{x}(t_{i})$
+\end_inset
+
+) or group 
+\begin_inset Formula $m$
+\end_inset
+
+ points into one cluster (using e.
+\begin_inset space ~
+\end_inset
+
+g.
+ time averaging).
+\begin_inset Formula 
+\begin{align*}
+b_{i}(t) & =\mathbb{P}(\mathbf{x}(t)\mid s=i)=\frac{\mathbb{P}(s=i\mid\mathbf{x}(t))\mathbb{P}(\mathbf{x}(t))}{\mathbb{P}(s=i)}=\frac{\mathbb{P}(s=i\mid\mathbf{x}(t))\mathbb{P}(\mathbf{x}(t))}{\sum_{t'}\mathbb{P}(s=i\mid\mathbf{x}(t'))\mathbb{P}(\mathbf{x}(t'))}\\
+ & =\frac{\varrho_{i}(t)\mathbb{P}(\mathbf{x}(t))}{\sum_{t'}\varrho_{i}(t')\mathbb{P}(\mathbf{x}(t'))}=\frac{\varrho_{i}(t)}{\sum_{t'}\varrho_{i}(t')}
+\end{align*}
+
+\end_inset
+
+where I have used the model 
+\begin_inset Formula $\varrho_{i}(\mathbf{x}(t))=\frac{\exp\left[\boldsymbol{\theta}_{i}\cdot\mathbf{z}(\mathbf{x}(t))\right]}{\sum_{k}\exp\left[\boldsymbol{\theta}_{k}\cdot\mathbf{z}(\mathbf{x}(t))\right]}$
+\end_inset
+
+.
+ Here I consider the definition of 
+\begin_inset Formula $\mathbf{z}$
+\end_inset
+
+ as part of my model.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+TODO: think about 
+\begin_inset Formula $\mathbb{P}(\mathbf{x}(t))$
+\end_inset
+
+ being uniform.
+ Conceivable alternative would be that 
+\begin_inset Formula $\mathbb{P}(y(t))$
+\end_inset
+
+ depends on 
+\begin_inset Formula $i$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Formula $y(t)$
+\end_inset
+
+ should not include any reweighting beyond that 
+\begin_inset Formula $i$
+\end_inset
+
+ dependence.
+\end_layout
+
+\begin_layout Plain Layout
+However, we ignore 
+\begin_inset Formula $i$
+\end_inset
+
+-dependence at this stage, since it would cancel in 
+\begin_inset Formula $b_{i}(t)$
+\end_inset
+
+ anyway.
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+default HMM
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Formula $b_{t,j}=\frac{\sum_{k}O_{t,k}\sum_{t'}\gamma_{t',j}O_{t',k}}{\sum_{t'}\gamma_{t',j}}=\frac{\sum_{k,t'}O_{t,k}O_{k,t}^{T}\gamma_{t',j}}{\sum_{t'}\gamma_{t',j}}=\frac{\mathbf{O}\mathbf{O}^{T}\boldsymbol{\gamma}}{\mathbf{1}\cdot\boldsymbol{\gamma}}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+(if every observations is unique, the O is a permutation matrix and O is
+ orthonormal -> 
+\begin_inset Formula $OO^{T}=Id$
+\end_inset
+
+ -> 
+\family roman
+\series medium
+\shape up
+\size normal
+\emph off
+\bar no
+\strikeout off
+\uuline off
+\uwave off
+\noun off
+\color none
+
+\begin_inset Formula $b_{t,j}=\frac{\boldsymbol{\gamma}}{\mathbf{1}\cdot\boldsymbol{\gamma}}$
+\end_inset
+
+
+\family default
+\series default
+\shape default
+\size default
+\emph default
+\bar default
+\strikeout default
+\uuline default
+\uwave default
+\noun default
+\color inherit
+)
+\end_layout
+
+\begin_layout Plain Layout
+me method
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Formula $b_{t,j}=\frac{\varrho_{t,j}}{\sum_{t'}\varrho_{t',j}}=$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+https://academic.oup.com/bioinformatics/article/30/12/1755/380854
+\end_layout
+
+\begin_layout Standard
+GOOD: http://www.ai.mit.edu/courses/6.891-nlp/READINGS/maxent.pdf
+\end_layout
+
+\end_body
+\end_document
