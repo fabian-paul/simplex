@@ -13,6 +13,7 @@ class MSM(object):
     # wrap Pyemma MSM or msmtools MSM
     def __init__(self, n_states):
         self.n_states = n_states
+        self.estimated = False
         # gap: its > tau and large relative gap...
         # TODO: automatic identification of spectral gap with RMA?
 
@@ -25,7 +26,7 @@ class MSM(object):
         T[lcs, lcs[:, np.newaxis]] = msmtools.estimation.tmatrix(C[lcs, :][:, lcs], revsersible=False).todense()
 
         C_back = msmtools.estimation.count_matrix([o[::-1] for o in observations], lag=lag)
-        lcs_back = msmtools.estimation.largest_connected_set(C_back, direced=False)
+        lcs_back = msmtools.estimation.largest_connected_set(C_back, directed=False)
         T_back = np.zeros(C.shape)
         T_back[lcs_back, lcs_back[:, np.newaxis]] = msmtools.estimation.tmatrix(C_back[lcs_back, :][:, lcs_back], reversible=False).todense()
         
@@ -50,6 +51,7 @@ class MSM(object):
         self.b = chi.dot(PI)
         # coarse-grained T matrix
         self.T = np.linag.inv(chi.dot(PI).dot(chi.T)).dot(chi.dot(T).dot(chi.T))
+        self.estimated = True
 
     @property
     def b(self):
@@ -113,14 +115,20 @@ class SimplexCoreMSM(object):
     def estimate(self, observations, lag):
         from . import milestoning_count_matrix, find_vertices_inner_simplex, core_assignments, memberships
         vertices = find_vertices_inner_simplex(observations)
-        ctrajs = core_assignments(vertices, observations)
+        mems = memberships(vertices, observations)
+        ctrajs = core_assignments_given_memberships(mems, observations)
         C = milestoning_count_matrix(ctrajs)
         T = C / C.sum(axis=1)[:, np.newaxis]
         self.T = T
         self.vertices = vertices
-        return SimplexCoreMSMModel(self.T, self.vertices, ctrajs)
-
-    @propterty
+        self.p0 = np.array([ m[0, :] for m in mems ]).mean(axis=0)
+        #return SimplexCoreMSMModel(self.T, self.vertices, ctrajs)
+        
+    @property
+    def p0(self):
+        pass
+        
+    @property
     def T(self):
         return self.T
 
@@ -128,14 +136,14 @@ class SimplexEmissionModel(object):
     def __init__(self):
         self.W = None
         
-    def initialize(self, model):
+    def initialize(self, model, observations):
         assert isinstance(model, SimplexCoreMSM)
         # get W from simplex
         self.W = model.vertices # TODO: take inverse! somehow, see lyx
-        self.observations = model.tics # TODO: name?
+        self.observations = observations # these are the TICs
 
     # scipy special softmax?
-    def estimate(self, observations, metastable_memberships):
+    def estimate(self, metastable_memberships):
         import scipy as sp
         self.observations = observations  # ??
         # optimize W to match metastable_memberships
@@ -150,7 +158,7 @@ class SimplexEmissionModel(object):
                 gradient += np.dot(obs.T, logistic_mem-meta_mem)  # TODO: test if einsum is faster?
             return (function, gradient)
         # scipy-optimize W
-        res = sp.optimize.minimize(function_and_gradient, np.reshape(self.W, -1), method=‘L-BFGS-B’ , jac=True) # tol=None?
+        res = sp.optimize.minimize(function_and_gradient, np.reshape(self.W, -1), method='L-BFGS-B' , jac=True) # tol=None?
         if res.success:
             self.W = np.reshape(res.x, self.W.shape)
         else:
@@ -165,9 +173,9 @@ class SimplexEmissionModel(object):
             b.append(logistic_mem / logistic_mem.sum(axis=0)[np.newaxis, :])
         return b
 
-    @property
-    def vertices(self):
-        return self.W # TODO: correct me!
+    #@property
+    #def vertices(self):
+    #    return self.W # TODO: correct me!
 
 # to the wiring on the api function level
 def hmm():
@@ -211,29 +219,30 @@ class HMM(object):
             for t in range(T-2, 0, -1):
                 b[t, :] = a.dot(b[t+1, :]*beta[t+1, :])
 
-             temp = alpha*beta
-             gamma = temp / temp.sum(axis=1)[:, np.newaxis]
+            temp = alpha*beta
+            gamma = temp / temp.sum(axis=1)[:, np.newaxis]
 
-             temp = alpha[0:-1, :, np.newaxis]*a[np.newaxis, :, :]*b[1:, np.newaxis, :]*beta[1:, np.newaxis, :]
-             xi = temp / temp.sum(axis=2).sum(axis=1)[:, np.newaxis, np.newaxis]
+            temp = alpha[0:-1, :, np.newaxis]*a[np.newaxis, :, :]*b[1:, np.newaxis, :]*beta[1:, np.newaxis, :]
+            xi = temp / temp.sum(axis=2).sum(axis=1)[:, np.newaxis, np.newaxis]
 
-             # compute likelihood
-             L = alpha[-1, :].sum() # P(O|lambda) in the paper # TODO: make trajectory-dependent (see one of the appendices in the paper)
-             delta_L = abs(last_L - L) 
+            # compute likelihood
+            L = alpha[-1, :].sum() # P(O|lambda) in the paper # TODO: make trajectory-dependent (see one of the appendices in the paper)
+            delta_L = abs(last_L - L) 
 
-             # maximization step
-             self.emission_model.estimate(alpha*beta)
-             # continue with which memberships???? Read paper again!
+            # maximization step
+            self.emission_model.estimate(alpha*beta)
+            # continue with which memberships???? Read paper again!
              
-             # update pi (p0 and the hidden transition matrix)
-             pi = gamma[0, :]
-             a = xi.sum(axis=0) / gamma.sum(axis=0) # CHECK
+            # update pi (p0 and the hidden transition matrix)
+            pi = gamma[0, :]
+            a = xi.sum(axis=0) / gamma.sum(axis=0) # CHECK
              
-             if delta_L < self.tol:
-                 break
+            if delta_L < self.tol:
+                break
 
-        self.a = a
-        self.pi = pi
+        self.T = a
+        self.p0 = pi
         self.gamma = gamma
+        self.pi = msmtools.analysis.statdist(self.T)
 
         self.logger.log(self)
