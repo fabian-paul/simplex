@@ -47,7 +47,7 @@ class TestUsingPerfectSimplex(unittest.TestCase):
         # implicit membership computation
         score, score_by_state = simplex.simplex_misfit(self.X, self.real_vertices, per_state=True)
         tol = -10*np.finfo(np.array(score).dtype).eps
-        np.testing.assert_array_less(tol, score)
+        np.testing.assert_array_less(tol, score)  # tol < score
         np.testing.assert_array_less(tol, score_by_state)
 
         # explicit membership computation
@@ -55,6 +55,18 @@ class TestUsingPerfectSimplex(unittest.TestCase):
         score, score_by_state = simplex.simplex_misfit(mems, None, per_state=True)
         np.testing.assert_array_less(tol, score)
         np.testing.assert_array_less(tol, score_by_state)
+
+
+class TestUsingGaussianBlob(unittest.TestCase):
+    def setUp(self):
+        self.dim = 3
+        N_pts = 10000
+        self.X = np.random.randn(N_pts, self.dim)
+
+    def test_score(self):
+        vertices = simplex.find_vertices_inner_simplex(self.X)
+        score = simplex.simplex_misfit(self.X, vertices)
+        np.testing.assert_array_less(score, 0)  # score < 0
 
 
 if __name__ == '__main__':
