@@ -1052,7 +1052,7 @@ def _membership_computer(vertices):
     return function
 
 
-def simplex_misfit(input_, vertices, per_state=False):
+def simplex_misfit(input_, vertices, extrema=False, per_state=False):
     r'''Compute score that measures the misfit of the memberships to the simplex-structure of the data.
 
     Essentially this functions computes an averaged version of the minChi error indicator.
@@ -1067,6 +1067,12 @@ def simplex_misfit(input_, vertices, per_state=False):
         coordiantes of the vertices or None.
         If this argument is None, `input_` is treated as metastable memberships,
         else input_ is treated as independent components.
+
+    extrema : bool, optional, default=False
+        If set to True, search for the single strongest violation of the simplex
+        structure, instead of computing an average misfit (extrema=False). This
+        is very close to the original minChi criterion. However this is sensitive
+        to outliers.
 
     per_state : bool, optional, defeault=False
         return misfit measure resolved by metastable state
@@ -1092,6 +1098,7 @@ def simplex_misfit(input_, vertices, per_state=False):
         n_states = data.dimension()
         n_dim = data.dimension()
 
+    max_misfit = np.zeros(n_states, dtype=data.dtype)
     total_misfit = np.zeros(n_states, dtype=data.dtype)
     n_misfits = np.zeros(n_states, dtype=int)
 
@@ -1101,18 +1108,24 @@ def simplex_misfit(input_, vertices, per_state=False):
         for chunk in it:
             mems = membership_computer(chunk[:, 0:n_dim])
             delta = np.maximum(-np.minimum(mems, 0.0), np.maximum(mems - 1.0, 0.0))
-            is_misfit = (delta > 0).astype(int)
-            n_misfits_chunk = np.sum(is_misfit, axis=0)
-            total_misfit_chunk = np.sum(is_misfit*delta, axis=0)
-            n_misfits += n_misfits_chunk
-            total_misfit += total_misfit_chunk
+            if extrema:
+                max_misfit = np.maximum(np.max(delta, axis=0), max_misfit)
+            else:
+                is_misfit = (delta > 0).astype(int)
+                n_misfits_chunk = np.sum(is_misfit, axis=0)
+                total_misfit_chunk = np.sum(is_misfit*delta, axis=0)
+                n_misfits += n_misfits_chunk
+                total_misfit += total_misfit_chunk
 
-    avg_misfit = np.zeros(n_states, dtype=float) - 1.  # default to perfect fit
-    gt_zero = n_misfits > 0
-    avg_misfit[gt_zero] = total_misfit[gt_zero] / n_misfits[gt_zero]
+    if extrema:
+        typical_misfit = max_misfit
+    else:
+        typical_misfit = np.zeros(n_states, dtype=float) - 1.  # default to perfect fit
+        gt_zero = n_misfits > 0
+        typical_misfit[gt_zero] = total_misfit[gt_zero] / n_misfits[gt_zero]
 
     if per_state:
-        return -np.max(avg_misfit), -avg_misfit
+        return -np.max(typical_misfit), -typical_misfit
     else:
-        return -np.max(avg_misfit)
+        return -np.max(typical_misfit)
 

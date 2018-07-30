@@ -56,6 +56,10 @@ class TestUsingPerfectSimplex(unittest.TestCase):
         np.testing.assert_array_less(tol, score)
         np.testing.assert_array_less(tol, score_by_state)
 
+        score, score_by_state = simplex.simplex_misfit(mems, None, extrema=True, per_state=True)
+        np.testing.assert_array_less(tol, score)
+        np.testing.assert_array_less(tol, score_by_state)
+
 
 class TestUsingGaussianBlob(unittest.TestCase):
     def setUp(self):
@@ -66,6 +70,9 @@ class TestUsingGaussianBlob(unittest.TestCase):
     def test_score(self):
         vertices = simplex.find_vertices_inner_simplex(self.X)
         score = simplex.simplex_misfit(self.X, vertices)
+        np.testing.assert_array_less(score, 0)  # score < 0
+
+        score = simplex.simplex_misfit(self.X, vertices, extrema=True)
         np.testing.assert_array_less(score, 0)  # score < 0
 
 
