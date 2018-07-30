@@ -486,124 +486,6 @@ def membership_simplex_projection(membership_trajs):
     return projection
 
 
-def mds_projection(vertices, center=None, n_dim_target=2):
-    r"""Compute a projection matrix that represents the MDS embedding of the vertices into n_dim_target dimensions.
-
-        parameters
-        ----------
-        vertices : np.ndarray((n_dims_source+1, n_dims_source))
-            coordiantes of the vertices
-        center : int, optional, default = None
-            index of the vertex to put at the coordinate origin in the target space
-            By default, the vertex closest to the coodinate origin in the source space is selected.
-        n_dim_target : int, default = 2
-            dimension of the target space
-
-        returns
-        -------
-        (P, o)
-        P : np.ndarray((n_dims_source, n_dim_target))
-            the projection matrix
-        o : np.ndarray((n_dims_source))
-            the shift vector
-
-        To apply the projection to your data `d`, compute `(d-o).dot(P)`
-    """
-    # todo: this can be optimized...
-    from sklearn.manifold import MDS
-    mds = MDS(n_components=n_dim_target, metric=True, dissimilarity='euclidean')
-    vertices_low_D = mds.fit_transform(vertices)
-    if center is None:
-        # pick the one that is closest to the origin in the projection
-        center = np.argmin(np.linalg.norm(vertices_low_D, axis=1))
-    u = vertices_low_D[center, :]
-    L = np.concatenate((vertices_low_D[0:center, :], vertices_low_D[center+1:, :])) - u
-
-    o = vertices[center, :]
-    W = np.concatenate((vertices[0:center, :], vertices[center+1:, :])) - o
-    return np.linalg.inv(W).dot(L), o
-
-
-def thomson_problem(dim, n_elec, selftest=True, max_iter=100, return_energy=False):
-    r"""Searches a local optimum of the Thomson problem with n_elec electrons in dim dimensions."""
-    assert dim>=3
-
-    x0 = np.zeros((n_elec, dim))
-    # initial guess with v. Neumann method
-    for i in range(n_elec):
-        while True:
-            r = (np.random.random_sample(dim)*2.0) - 1.0
-            n = np.linalg.norm(r)
-            if n<1 and n>0:
-                x0[i, :] = r/n
-                break # while
-
-    X0 = x0.reshape(-1)
-
-    def func(X):
-        x = X.reshape((n_elec, dim))
-        d = sp.spatial.distance.squareform(sp.spatial.distance.pdist(x))
-        np.fill_diagonal(d, np.inf)
-        value = 0.5*np.power(d, -(dim-2)).sum()
-        return value
-
-    def fprime(X):
-        x = X.reshape((n_elec, dim))
-        d = sp.spatial.distance.squareform(sp.spatial.distance.pdist(x))
-        np.fill_diagonal(d, np.inf)
-        m = np.power(d, -dim)
-        v = x[:, np.newaxis, :] - x[np.newaxis, :, :]
-        return (2-dim)* (m[:, :, np.newaxis]*v).sum(axis=1).reshape(-1)
-
-    def f_eqcons(X):
-        x = X.reshape((n_elec, dim))
-        return np.linalg.norm(x, axis=1)**2.0 - 1.0
-
-    def fprime_eqcons(X):
-        x = X.reshape((n_elec, dim))
-        f = np.zeros((n_elec, n_elec*dim))
-        for i in range(n_elec):
-            indices = i*dim + np.arange(dim) # last=fast index
-            f[i, indices] = 2.0 * x[i, :]
-        return f
-
-    #print 'initial energy', func(X0)
-
-    if selftest:
-        direction = np.random.rand(len(X0)) * 1.0E-5
-        f1, grad1 = func(X0), fprime(X0)
-        f2 = func(X0 + direction)
-        df = np.dot(grad1, direction)
-        # in general we would have to use |a-b|/max(|a|,|b|) but since mostly |df|>|f1-f2| we can use error/|df|
-        err = np.abs((f2 - f1 - df) / (df))
-        assert err < 0.01
-        #print 'gradient error', err
-
-        direction = np.random.rand(len(X0)) * 1.0E-5
-        f1, grad1 = f_eqcons(X0), fprime_eqcons(X0)
-        f2 = f_eqcons(X0 + direction)
-        df = np.dot(grad1, direction)
-        err = np.abs((f2 - f1 - df) / (df))
-        assert  np.all(err < 0.01)
-        #print 'constraint gradient error', err
-
-    out, fx, its, imode, smode = sp.optimize.fmin_slsqp(func=func, x0=X0, f_eqcons=f_eqcons,
-        fprime=fprime, fprime_eqcons=fprime_eqcons, iter=max_iter, iprint=0, full_output=True)
-
-    if imode!=0:
-        warnings.warn(smode)
-
-    x = out.reshape((n_elec, dim))
-
-    n = np.linalg.norm(x, axis=1)
-    x /= n[:, np.newaxis]
-
-    if return_energy:
-        return x, func(x.reshape(-1))
-    else:
-        return x
-
-
 def splash_corner_projection(vertices, center=0, n_dim_target=2, max_iter=100):
     r"""Compute a projection matrix that represents an even embedding of the vertices into a target space with dimension n_dim_target.
 
@@ -645,7 +527,7 @@ def splash_corner_projection(vertices, center=0, n_dim_target=2, max_iter=100):
             L[i, 0] = np.sin(2.0*np.pi*i/float(N))
             L[i, 1] = np.cos(2.0*np.pi*i/float(N))
     elif n_dim_target>2:
-        L = thomson_problem(n_dim_target, N, max_iter=max_iter)
+        raise Exception('n_dim_target > 2 is no longer supported')
     else:
         raise Exception('n_dim must be an integer > 1')
     return np.linalg.inv(W).dot(L), o
