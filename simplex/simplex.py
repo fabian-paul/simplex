@@ -246,7 +246,7 @@ def core_assignment_given_memberships(memberships_, f=0.6, d=0.0):
             ks, js = np.argsort(chunk, axis=1)[:, -2:].T
             if d != 0: # case decision gives speedup if no logical and operation is needed
                 assigned_idx = np.logical_and(chunk[np.arange(L), js] > f,
-                                              chunk[np.arange(L), js] > chunk[:, ks] + d)
+                                              chunk[np.arange(L), js] > chunk[np.arange(L), ks] + d)
             else:
                 assigned_idx = chunk[np.arange(L), js] > f
 
