@@ -23,5 +23,39 @@ class TestMemberships(unittest.TestCase):
             assert np.all(m <= 1.0 + eps)
             np.testing.assert_allclose(m.sum(axis=1), 1)
 
+class TestUsingPerfectSimplex(unittest.TestCase):
+    def setUp(self):
+        dim = 3
+        N_pts = 10000
+        vol = 0
+        real_vertices = None
+        for _ in range(100):  # generate vertices of random and non-degenerate simplex
+            trial_vertices = np.random.rand(dim + 1, dim)
+            trial_vol = np.abs(np.linalg.det(trial_vertices[1:, :] - trial_vertices[0, :]))
+            if trial_vol > vol:
+                vol = trial_vol
+                real_vertices = trial_vertices
+
+        X = np.random.rand(N_pts, dim + 1)
+        X = X / X.sum(axis=1)[:, np.newaxis]
+        X = X.dot(real_vertices)
+
+        self.real_vertices = real_vertices
+        self.X = np.concatenate((X, real_vertices))
+
+    def test_score(self):
+        # implicit membership computation
+        score, score_by_state = simplex.simplex_misfit(self.X, self.real_vertices, per_state=True)
+        tol = -10*np.finfo(np.array(score).dtype).eps
+        np.testing.assert_array_less(tol, score)
+        np.testing.assert_array_less(tol, score_by_state)
+
+        # explicit membership computation
+        mems = simplex.memberships(self.X, self.real_vertices)
+        score, score_by_state = simplex.simplex_misfit(mems, None, per_state=True)
+        np.testing.assert_array_less(tol, score)
+        np.testing.assert_array_less(tol, score_by_state)
+
+
 if __name__ == '__main__':
     unittest.main()

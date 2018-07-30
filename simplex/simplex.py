@@ -1,4 +1,4 @@
-# Copyright (c) 2017, Fabian Paul, Computational Molecular Biology Group, 
+# Copyright (c) 2017, Fabian Paul, Computational Molecular Biology Group,
 # Freie Universitaet Berlin and Max Planck Institute of Colloids and Interfaces
 #
 # This is free software: you can redistribute it and/or modify
@@ -439,7 +439,7 @@ def _membership_simplex_projection_singlevec(vec):
     Returns projected vector
     -------
     """
-    idx_order = [np.where(np.sort(vec) == _elem)[0][0] for _elem in vec]
+    idx_order = [np.where(np.sort(vec) == _elem)[0][0] for _elem in vec]  # TODO: np.arssort?
     vec = np.sort(vec)
 
     n = vec.shape[0]
@@ -1139,6 +1139,7 @@ def scatter_mem(memberships, ctrajs=None, selection=range(0, 4), center=True, ax
 
     return ax
 
+
 def pcca_score(memberships, autocorrect=True):
     r'''See Roeblitz, Weber, Adv. Data. Anal. Classif. 7, 147 (2013)
     '''
@@ -1152,12 +1153,84 @@ def pcca_score(memberships, autocorrect=True):
     chit_D2_chi = sum(m.T.dot(m) for m in memberships)
     return nc - np.trace(D2c_inv.dot(chit_D2_chi))
 
-## workflow for visualization:
-# vertices = find_vertices_inner_simplex(data)
-# P, o = corner_projection(vertices, n_dim=2)
-# P, o = mds_projection(vertices, n_dim=2) # alternative
-# low_dimensional_data = (data-o).dot(P)
-# plt.hist2d(low_dimensional_data[:, 0], low_dimensional_data[:, 1])
-## workflow for clustering: replace n_dim=2 with somewhat higher number
 
+def _membership_computer(vertices):
+    r'''Return a function that computes memberships from a chunk of ICs.
+    '''
+    M = np.vstack((vertices.T, np.ones(vertices.shape[0])))
+    del vertices
+    lu_and_piv = sp.linalg.lu_factor(M)
+    n_memberships = M.shape[0]
+    del M
+    def function(chunk):
+        out = np.zeros((chunk.shape[0], n_memberships), chunk.dtype)
+        for i, frame in enumerate(chunk):
+            out[i, :] = sp.linalg.lu_solve(lu_and_piv, np.concatenate((frame, [1])))
+        return out
+    return function
+
+
+def simplex_misfit(input_, vertices, per_state=False):
+    r'''Compute score that measures the misfit of the memberships to the simplex-structure of the data.
+
+    Essentially this functions computes an averaged version of the minChi error indicator.
+
+    Parameters
+    ----------
+    input_ : list of ndarray((T_i, N))
+        times series of the independent components
+        (or time series of the metastable memberships, depending of the value of `vertices`)
+
+    vertices : np.ndarray((n_dim + 1, n_dim)) or None
+        coordiantes of the vertices or None.
+        If this argument is None, `input_` is treated as metastable memberships,
+        else input_ is treated as independent components.
+
+    per_state : bool, optional, defeault=False
+        return misfit measure resolved by metastable state
+
+    Returns
+    -------
+    * `(maximal_misfit, per_state_misfit)` if `per_state` is true
+    * `maximal_misfit` else
+
+    maximal_misfit : float
+        the smaller, the worse the fit (values > 0 indicate perfect fit)
+    per_state_misfit : np.ndarray(n_states, dtype=float)
+        misfit resolved per metastable state
+    '''
+    data = _source(input_)
+
+    if vertices is not None:
+        membership_computer = _membership_computer(vertices)
+        n_states = vertices.shape[0]
+        n_dim = vertices.shape[1]
+    else:
+        membership_computer = lambda x: x  # identity
+        n_states = data.dimension()
+        n_dim = data.dimension()
+
+    total_misfit = np.zeros(n_states, dtype=data.dtype)
+    n_misfits = np.zeros(n_states, dtype=int)
+
+    # internally we work with the negative of the score (the larger, the worse)
+    it = data.iterator(return_trajindex=False)
+    with it:
+        for chunk in it:
+            mems = membership_computer(chunk[:, 0:n_dim])
+            delta = np.maximum(-np.minimum(mems, 0.0), np.maximum(mems - 1.0, 0.0))
+            is_misfit = (delta > 0).astype(int)
+            n_misfits_chunk = np.sum(is_misfit, axis=0)
+            total_misfit_chunk = np.sum(is_misfit*delta, axis=0)
+            n_misfits += n_misfits_chunk
+            total_misfit += total_misfit_chunk
+
+    avg_misfit = np.zeros(n_states, dtype=float) - 1.  # default to perfect fit
+    gt_zero = n_misfits > 0
+    avg_misfit[gt_zero] = total_misfit[gt_zero] / n_misfits[gt_zero]
+
+    if per_state:
+        return -np.max(avg_misfit), -avg_misfit
+    else:
+        return -np.max(avg_misfit)
 
