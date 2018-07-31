@@ -1052,7 +1052,7 @@ def _membership_computer(vertices):
     return function
 
 
-def simplex_misfit(input_, vertices, extrema=False, per_state=False):
+def simplex_misfit(input_, vertices, minChi=True, extrema=False, per_state=False):
     r'''Compute score that measures the misfit of the memberships to the simplex-structure of the data.
 
     Essentially this functions computes an averaged version of the minChi error indicator.
@@ -1067,6 +1067,12 @@ def simplex_misfit(input_, vertices, extrema=False, per_state=False):
         coordiantes of the vertices or None.
         If this argument is None, `input_` is treated as metastable memberships,
         else input_ is treated as independent components.
+
+    minChi : bool, optional, default=True
+        If true, compute the minChi score (either the averaged or extremal version,
+        depending on the value of `extrema`). If false, also include violations
+        of the simplex structure, where memberships are larger than one into the
+        score.
 
     extrema : bool, optional, default=False
         If set to True, search for the single strongest violation of the simplex
@@ -1107,7 +1113,10 @@ def simplex_misfit(input_, vertices, extrema=False, per_state=False):
     with it:
         for chunk in it:
             mems = membership_computer(chunk[:, 0:n_dim])
-            delta = np.maximum(-np.minimum(mems, 0.0), np.maximum(mems - 1.0, 0.0))
+            if minChi:
+                delta = -np.minimum(mems, 0.0)
+            else:
+                delta = np.maximum(-np.minimum(mems, 0.0), np.maximum(mems - 1.0, 0.0))
             if extrema:
                 max_misfit = np.maximum(np.max(delta, axis=0), max_misfit)
             else:
