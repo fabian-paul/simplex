@@ -3,14 +3,25 @@ import numpy as np
 import scipy as sp
 import scipy.optimize
 import msmtools
-from .simplex import core_assignment_given_memberships, milestoning_count_matrix
+from simplex import core_assignment_given_memberships, milestoning_count_matrix
 
 
 def softmax(x):
     return np.exp(x) / np.exp(x).sum(axis=1)[:, np.newaxis]
 
 
-def dense(dtrajs, n_states=None, dtype=np.float32):  # TODO: also implement sparse?
+def dense(dtrajs, n_states=None, dtype=np.float32):
+    '''Convert sequence of indices to one-hot encoding
+
+    :param dtrajs: list of np.ndarray(T_i, dtype=int)
+        sequences of indices
+    :param n_states: int
+        number of states, determines shape[1] of the returned np.ndarray s
+    :param dtype: numpy data type object
+        dtype of the return values
+    :return: list of arrays
+        dtrajs converted to one-hot encoding
+    '''
     if n_states is None:
         n_states = max(np.max(d) for d in dtrajs) + 1
     dense_trajs = []
@@ -24,6 +35,7 @@ def dense(dtrajs, n_states=None, dtype=np.float32):  # TODO: also implement spar
 class NullLogger(object):
     def log(self, **kwargs):
         pass
+
 
 # TODO: distinguish this MSM from Pyemma's or make compatible
 class MSM(object):
@@ -65,7 +77,7 @@ class MSM(object):
                     k += 1
         else:
             raise NotImplementedError('non-reversible case not yet implemented')
-            # TODO: implement using Schur decomposition and G-PCCA
+            # TODO: implement using Schur decomposition and G-PCCA (wait for Bernhard)
 
 
         rho = np.diag(C.sum(axis=1))
@@ -83,7 +95,7 @@ class MSM(object):
         empty = np.where(Ct_cg.sum(axis=1) == 0)[0]
         Ct_cg[empty, empty] = 1
         self._T = np.linalg.inv(C0_cg).dot(Ct_cg)
-        # TODO: do we need to make elements positive?
+        # TODO: do we need to make elements positive? How?
         self.estimated = True
 
     #@property
@@ -120,7 +132,7 @@ class DiscreteEmissionModel(object):
         self.observations = observations
         assert isinstance(model, MSM)
         self._b = model.b
-        self._unique_observations = np.unique([np.unique(o) for o in self.observations])
+        self._unique_observations = np.unique(np.concatenate([np.unique(o) for o in self.observations]))
         self.n_obs = max(self._unique_observations) + 1  # number of distinct observed states
         self.n_states = model.n_states  # number of hidden states
 
@@ -137,7 +149,7 @@ class DiscreteEmissionModel(object):
         '''
         if trajectory_weights is None:
             trajectory_weights = [1.0]*len(joint_probabilities)
-        self._b = np.zeros(self.n_obs, self.n_states)
+        self._b = np.zeros((self.n_obs, self.n_states), dtype=np.float64)
         norm = np.zeros(self.n_states, dtype=np.float64)
         for ab, w in zip(joint_probabilities, trajectory_weights):
             norm += w*ab.sum(axis=0)
@@ -185,16 +197,15 @@ class SimplexEmissionModel(object):
     def initialize(self, model, observations):
         assert isinstance(model, SimplexCoreMSM)
         # get W from simplex
-        self.W = model.vertices # TODO: take inverse! somehow, see lyx
+        self.W = model.vertices # TODO: take inverse! somehow (augment with constant), see lyx
         self.observations = observations # these are the TICs
 
     # scipy special softmax?
-    def estimate(self, metastable_memberships):
-        import scipy as sp
-        self.observations = self.observations  # ??
+    def estimate(self, joint_probabilities, trajectory_wieghts=None):
+        metastable_memberships = [ab / ab.sum(axis=1)[:, np.newaxis] for ab in joint_probabilities]  # gamma in the notation of Rabiner
         # optimize W to match metastable_memberships
         def function_and_gradient(x):
-            W = np.unravel(x, self.W.shape)  # fixme!
+            W = np.reshape(x, self.W.shape)
             function = 0.0
             gradient = np.zeros_like(self.W)
             for obs, meta_mem in zip(self.observations, metastable_memberships):
@@ -295,7 +306,7 @@ class HMM(object):
                 visits += (1.0 / p_traj) * np.einsum('ti,ti->i', alpha_traj[:-1], beta_traj[:-1])
             a = counts / visits[:, np.newaxis]
             # update emissions
-            self.emission_model.estimate(alpha_times_beta, trajectory_weights=1./P)  # update b
+            self.emission_model.estimate(joint_probabilities=alpha_times_beta, trajectory_weights=1./P)  # update b
              
             if delta_logL < self.tol:
                 break
@@ -343,12 +354,14 @@ if __name__ == '__main__':
 
 
     msm = MSM(n_states=n)
-    msm.estimate(otrajs, 1)
+    msm.estimate(otrajs, lag=1)
     emm = DiscreteEmissionModel()
     emm.initialize(msm, otrajs)
+    assert msm.chi.shape[0]==N
+    assert msm.chi.shape[1]==n
     emm.estimate(msm.chi)
 
-    hmm =  HMM(otrajs, 1)
+    hmm =  HMM(otrajs, initial_model=msm, lag=1)
     hmm.estimate()
 
     # compare b to hmm.b
