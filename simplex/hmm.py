@@ -33,7 +33,7 @@ def dense(dtrajs, n_states=None, dtype=np.float32):
 
 
 class NullLogger(object):
-    def log(self, **kwargs):
+    def log(self, *args, **kwargs):  # ** = Ruehrstaebe des Handmixers von unten gesehen, für Quark.
         pass
 
 
@@ -83,6 +83,7 @@ class MSM(object):
         rho = np.diag(C.sum(axis=1))
 
         self.chi = chi
+        assert np.all(chi >= 0)
         
         # membership will be defined on the full observed space (but might be zero for some states in the observed space)
         self._b = np.dot(rho, self.chi)
@@ -95,7 +96,10 @@ class MSM(object):
         empty = np.where(Ct_cg.sum(axis=1) == 0)[0]
         Ct_cg[empty, empty] = 1
         self._T = np.linalg.inv(C0_cg).dot(Ct_cg)
-        # TODO: do we need to make elements positive? How?
+        self._T = np.maximum(self._T, 0.0)
+        self._T = self._T / self._T.sum(axis=1)[:, np.newaxis]
+        assert np.all(self._T >= 0)
+        assert np.allclose(self._T.sum(axis=1), 1.0)
         self.estimated = True
 
     #@property
@@ -108,7 +112,7 @@ class MSM(object):
 
     def p0(self, observations, frames=slice(0, 1)):
         # use initial memberships (first frame of every dtraj)
-        p0 = np.hstack([ self.chi[o[frames], :] for o in observations ]).mean(axis=0)
+        p0 = np.vstack([self.chi[o[frames], :] for o in observations]).mean(axis=0)
         return p0
 
     @property
@@ -152,7 +156,7 @@ class DiscreteEmissionModel(object):
         self._b = np.zeros((self.n_obs, self.n_states), dtype=np.float64)
         norm = np.zeros(self.n_states, dtype=np.float64)
         for ab, w in zip(joint_probabilities, trajectory_weights):
-            norm += w*ab.sum(axis=0)
+            norm += w*ab.sum(axis=0)  # time summation
         for o, ab, w in zip(self.observations, joint_probabilities, trajectory_weights):
             for i in self._unique_observations:
                 self._b[i, :] += w*(ab[o==i, :]).sum(axis=0) / norm
@@ -164,7 +168,7 @@ class DiscreteEmissionModel(object):
         :returns list of np.array(T_n, S_i)
             [ P(O_t|q_t=S_i) t for 0 ... T_n ] where O_t are fixed and q_t are free
         '''
-        return [ self._b[o, :] for o in self.observations ]
+        return [self._b[o, :] for o in self.observations]
 
 
 class SimplexCoreMSM(object):
@@ -270,11 +274,18 @@ class HMM(object):
         alpha = [ np.zeros((len(o_traj), n_states)) for o_traj in self.observations]   # Rabiner notation
         beta = [ np.zeros((len(o_traj), n_states)) for o_traj in self.observations]  # Rabiner notation
 
-        pi = self.initial_model.p0  # attention: pi means p0 here!
+        pi = self.initial_model.p0(self.observations, frames=0)  # attention: pi means p0 here!
+        assert pi.ndim == 1
+        assert pi.shape[0] == n_states
         a = self.initial_model.T  # a is the transition matrix
         for iteration in range(self.max_iter):
             # expectation step
             bl = self.emission_model.emission_likelihood
+            for bl_traj, o in zip(bl, self.observations):
+                assert bl_traj.ndim == 2
+                assert bl_traj.shape[0] == len(o)
+                assert bl_traj.shape[1] == n_states
+                assert np.all(bl_traj >= 0)
 
             # forward procedure:
             for alpha_traj, bl_traj in zip(alpha, bl):
@@ -289,24 +300,31 @@ class HMM(object):
             alpha_times_beta = [alpha_traj*beta_traj for alpha_traj, beta_traj in zip(alpha, beta)]
 
             # likelihoods of the individual trajectories
-            P = [alpha_traj[-1, :].sum() for alpha_traj in alpha]
+            P = np.array([alpha_traj[-1, :].sum() for alpha_traj in alpha])
+            assert np.all(P > 0)
             # compute likelihood
             logL = np.sum(np.log(P)) # P(O|lambda) in the paper
+            print(logL)
             delta_logL = abs(last_logL - logL)
 
             # update step:
+            # update emissions
+            self.emission_model.estimate(joint_probabilities=alpha_times_beta, trajectory_weights=1./P)  # update b
             # update pi (i. e. p(t=0) of the hidden transition matrix)
             pi = np.sum([1.0/p_traj*alpha_traj[0, :]*beta_traj[0, :] for alpha_traj, beta_traj, p_traj in zip(alpha, beta, P)])
             pi = pi/pi.sum()
             # update transition matrix
             counts = np.zeros((n_states, n_states), dtype=np.float64)
             visits = np.zeros(n_states, dtype=np.float64)
-            for i, (alpha_traj, beta_traj, b_traj, p_traj) in enumerate(zip(alpha, beta, b, P)):
-                counts += (1.0 / p_traj) * np.einsum('ti,ij,tj,tj->ij', alpha_traj[:-1], a, b_traj[1:], beta_traj[1:])
+            for i, (alpha_traj, beta_traj, bl_traj, p_traj) in enumerate(zip(alpha, beta, bl, P)):
+                assert alpha_traj[:-1].ndim == 2
+                assert a.ndim == 2
+                assert bl_traj[1:].ndim == 2
+                assert beta_traj[1:].ndim == 2
+                counts += (1.0 / p_traj) * np.einsum('ti,ij,tj,tj->ij', alpha_traj[:-1], a, bl_traj[1:], beta_traj[1:])
                 visits += (1.0 / p_traj) * np.einsum('ti,ti->i', alpha_traj[:-1], beta_traj[:-1])
             a = counts / visits[:, np.newaxis]
-            # update emissions
-            self.emission_model.estimate(joint_probabilities=alpha_times_beta, trajectory_weights=1./P)  # update b
+
              
             if delta_logL < self.tol:
                 break
@@ -321,8 +339,8 @@ class HMM(object):
 
 
 if __name__ == '__main__':
-    n = 10
-    N = 100
+    n = 3
+    N = 10
     C = np.random.rand(n, n)
     C = C +  C.T
     C = C / C.sum()
@@ -337,7 +355,7 @@ if __name__ == '__main__':
     p0 = p0 / p0.sum()
 
     n_trajs = 10
-    n_steps = 10
+    n_steps = 20
     dtrajs = []
     otrajs = []
     for _ in range(n_trajs):
@@ -357,9 +375,10 @@ if __name__ == '__main__':
     msm.estimate(otrajs, lag=1)
     emm = DiscreteEmissionModel()
     emm.initialize(msm, otrajs)
+    assert msm.chi.ndim == 2
     assert msm.chi.shape[0]==N
     assert msm.chi.shape[1]==n
-    emm.estimate(msm.chi)
+    emm.estimate([msm.chi[d, :] for d in dtrajs])
 
     hmm =  HMM(otrajs, initial_model=msm, lag=1)
     hmm.estimate()
