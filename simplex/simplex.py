@@ -1,4 +1,4 @@
-# Copyright (c) 2017, Fabian Paul, Computational Molecular Biology Group, 
+# Copyright (c) 2017, Fabian Paul, Computational Molecular Biology Group,
 # Freie Universitaet Berlin and Max Planck Institute of Colloids and Interfaces
 #
 # This is free software: you can redistribute it and/or modify
@@ -246,7 +246,7 @@ def core_assignment_given_memberships(memberships_, f=0.6, d=0.0):
             ks, js = np.argsort(chunk, axis=1)[:, -2:].T
             if d != 0: # case decision gives speedup if no logical and operation is needed
                 assigned_idx = np.logical_and(chunk[np.arange(L), js] > f,
-                                              chunk[np.arange(L), js] > chunk[:, ks] + d)
+                                              chunk[np.arange(L), js] > chunk[np.arange(L), ks] + d)
             else:
                 assigned_idx = chunk[np.arange(L), js] > f
 
@@ -439,7 +439,7 @@ def _membership_simplex_projection_singlevec(vec):
     Returns projected vector
     -------
     """
-    idx_order = [np.where(np.sort(vec) == _elem)[0][0] for _elem in vec]
+    idx_order = [np.where(np.sort(vec) == _elem)[0][0] for _elem in vec]  # TODO: np.arssort?
     vec = np.sort(vec)
 
     n = vec.shape[0]
@@ -486,124 +486,6 @@ def membership_simplex_projection(membership_trajs):
     return projection
 
 
-def mds_projection(vertices, center=None, n_dim_target=2):
-    r"""Compute a projection matrix that represents the MDS embedding of the vertices into n_dim_target dimensions.
-
-        parameters
-        ----------
-        vertices : np.ndarray((n_dims_source+1, n_dims_source))
-            coordiantes of the vertices
-        center : int, optional, default = None
-            index of the vertex to put at the coordinate origin in the target space
-            By default, the vertex closest to the coodinate origin in the source space is selected.
-        n_dim_target : int, default = 2
-            dimension of the target space
-
-        returns
-        -------
-        (P, o)
-        P : np.ndarray((n_dims_source, n_dim_target))
-            the projection matrix
-        o : np.ndarray((n_dims_source))
-            the shift vector
-
-        To apply the projection to your data `d`, compute `(d-o).dot(P)`
-    """
-    # todo: this can be optimized...
-    from sklearn.manifold import MDS
-    mds = MDS(n_components=n_dim_target, metric=True, dissimilarity='euclidean')
-    vertices_low_D = mds.fit_transform(vertices)
-    if center is None:
-        # pick the one that is closest to the origin in the projection
-        center = np.argmin(np.linalg.norm(vertices_low_D, axis=1))
-    u = vertices_low_D[center, :]
-    L = np.concatenate((vertices_low_D[0:center, :], vertices_low_D[center+1:, :])) - u
-
-    o = vertices[center, :]
-    W = np.concatenate((vertices[0:center, :], vertices[center+1:, :])) - o
-    return np.linalg.inv(W).dot(L), o
-
-
-def thomson_problem(dim, n_elec, selftest=True, max_iter=100, return_energy=False):
-    r"""Searches a local optimum of the Thomson problem with n_elec electrons in dim dimensions."""
-    assert dim>=3
-
-    x0 = np.zeros((n_elec, dim))
-    # initial guess with v. Neumann method
-    for i in range(n_elec):
-        while True:
-            r = (np.random.random_sample(dim)*2.0) - 1.0
-            n = np.linalg.norm(r)
-            if n<1 and n>0:
-                x0[i, :] = r/n
-                break # while
-
-    X0 = x0.reshape(-1)
-
-    def func(X):
-        x = X.reshape((n_elec, dim))
-        d = sp.spatial.distance.squareform(sp.spatial.distance.pdist(x))
-        np.fill_diagonal(d, np.inf)
-        value = 0.5*np.power(d, -(dim-2)).sum()
-        return value
-
-    def fprime(X):
-        x = X.reshape((n_elec, dim))
-        d = sp.spatial.distance.squareform(sp.spatial.distance.pdist(x))
-        np.fill_diagonal(d, np.inf)
-        m = np.power(d, -dim)
-        v = x[:, np.newaxis, :] - x[np.newaxis, :, :]
-        return (2-dim)* (m[:, :, np.newaxis]*v).sum(axis=1).reshape(-1)
-
-    def f_eqcons(X):
-        x = X.reshape((n_elec, dim))
-        return np.linalg.norm(x, axis=1)**2.0 - 1.0
-
-    def fprime_eqcons(X):
-        x = X.reshape((n_elec, dim))
-        f = np.zeros((n_elec, n_elec*dim))
-        for i in range(n_elec):
-            indices = i*dim + np.arange(dim) # last=fast index
-            f[i, indices] = 2.0 * x[i, :]
-        return f
-
-    #print 'initial energy', func(X0)
-
-    if selftest:
-        direction = np.random.rand(len(X0)) * 1.0E-5
-        f1, grad1 = func(X0), fprime(X0)
-        f2 = func(X0 + direction)
-        df = np.dot(grad1, direction)
-        # in general we would have to use |a-b|/max(|a|,|b|) but since mostly |df|>|f1-f2| we can use error/|df|
-        err = np.abs((f2 - f1 - df) / (df))
-        assert err < 0.01
-        #print 'gradient error', err
-
-        direction = np.random.rand(len(X0)) * 1.0E-5
-        f1, grad1 = f_eqcons(X0), fprime_eqcons(X0)
-        f2 = f_eqcons(X0 + direction)
-        df = np.dot(grad1, direction)
-        err = np.abs((f2 - f1 - df) / (df))
-        assert  np.all(err < 0.01)
-        #print 'constraint gradient error', err
-
-    out, fx, its, imode, smode = sp.optimize.fmin_slsqp(func=func, x0=X0, f_eqcons=f_eqcons,
-        fprime=fprime, fprime_eqcons=fprime_eqcons, iter=max_iter, iprint=0, full_output=True)
-
-    if imode!=0:
-        warnings.warn(smode)
-
-    x = out.reshape((n_elec, dim))
-
-    n = np.linalg.norm(x, axis=1)
-    x /= n[:, np.newaxis]
-
-    if return_energy:
-        return x, func(x.reshape(-1))
-    else:
-        return x
-
-
 def splash_corner_projection(vertices, center=0, n_dim_target=2, max_iter=100):
     r"""Compute a projection matrix that represents an even embedding of the vertices into a target space with dimension n_dim_target.
 
@@ -645,7 +527,7 @@ def splash_corner_projection(vertices, center=0, n_dim_target=2, max_iter=100):
             L[i, 0] = np.sin(2.0*np.pi*i/float(N))
             L[i, 1] = np.cos(2.0*np.pi*i/float(N))
     elif n_dim_target>2:
-        L = thomson_problem(n_dim_target, N, max_iter=max_iter)
+        raise Exception('n_dim_target > 2 is no longer supported')
     else:
         raise Exception('n_dim must be an integer > 1')
     return np.linalg.inv(W).dot(L), o
@@ -1139,6 +1021,7 @@ def scatter_mem(memberships, ctrajs=None, selection=range(0, 4), center=True, ax
 
     return ax
 
+
 def pcca_score(memberships, autocorrect=True):
     r'''See Roeblitz, Weber, Adv. Data. Anal. Classif. 7, 147 (2013)
     '''
@@ -1152,12 +1035,106 @@ def pcca_score(memberships, autocorrect=True):
     chit_D2_chi = sum(m.T.dot(m) for m in memberships)
     return nc - np.trace(D2c_inv.dot(chit_D2_chi))
 
-## workflow for visualization:
-# vertices = find_vertices_inner_simplex(data)
-# P, o = corner_projection(vertices, n_dim=2)
-# P, o = mds_projection(vertices, n_dim=2) # alternative
-# low_dimensional_data = (data-o).dot(P)
-# plt.hist2d(low_dimensional_data[:, 0], low_dimensional_data[:, 1])
-## workflow for clustering: replace n_dim=2 with somewhat higher number
 
+def _membership_computer(vertices):
+    r'''Return a function that computes memberships from a chunk of ICs.
+    '''
+    M = np.vstack((vertices.T, np.ones(vertices.shape[0])))
+    del vertices
+    lu_and_piv = sp.linalg.lu_factor(M)
+    n_memberships = M.shape[0]
+    del M
+    def function(chunk):
+        out = np.zeros((chunk.shape[0], n_memberships), chunk.dtype)
+        for i, frame in enumerate(chunk):
+            out[i, :] = sp.linalg.lu_solve(lu_and_piv, np.concatenate((frame, [1])))
+        return out
+    return function
+
+
+def simplex_misfit(input_, vertices, minChi=True, extrema=False, per_state=False):
+    r'''Compute score that measures the misfit of the memberships to the simplex-structure of the data.
+
+    Essentially this functions computes an averaged version of the minChi error indicator.
+
+    Parameters
+    ----------
+    input_ : list of ndarray((T_i, N))
+        times series of the independent components
+        (or time series of the metastable memberships, depending of the value of `vertices`)
+
+    vertices : np.ndarray((n_dim + 1, n_dim)) or None
+        coordiantes of the vertices or None.
+        If this argument is None, `input_` is treated as metastable memberships,
+        else input_ is treated as independent components.
+
+    minChi : bool, optional, default=True
+        If true, compute the minChi score (either the averaged or extremal version,
+        depending on the value of `extrema`). If false, also include violations
+        of the simplex structure, where memberships are larger than one into the
+        score.
+
+    extrema : bool, optional, default=False
+        If set to True, search for the single strongest violation of the simplex
+        structure, instead of computing an average misfit (extrema=False). This
+        is very close to the original minChi criterion. However this is sensitive
+        to outliers.
+
+    per_state : bool, optional, defeault=False
+        return misfit measure resolved by metastable state
+
+    Returns
+    -------
+    * `(maximal_misfit, per_state_misfit)` if `per_state` is true
+    * `maximal_misfit` else
+
+    maximal_misfit : float
+        the smaller, the worse the fit (values > 0 indicate perfect fit)
+    per_state_misfit : np.ndarray(n_states, dtype=float)
+        misfit resolved per metastable state
+    '''
+    data = _source(input_)
+
+    if vertices is not None:
+        membership_computer = _membership_computer(vertices)
+        n_states = vertices.shape[0]
+        n_dim = vertices.shape[1]
+    else:
+        membership_computer = lambda x: x  # identity
+        n_states = data.dimension()
+        n_dim = data.dimension()
+
+    max_misfit = np.zeros(n_states, dtype=data.dtype)
+    total_misfit = np.zeros(n_states, dtype=data.dtype)
+    n_misfits = np.zeros(n_states, dtype=int)
+
+    # internally we work with the negative of the score (the larger, the worse)
+    it = data.iterator(return_trajindex=False)
+    with it:
+        for chunk in it:
+            mems = membership_computer(chunk[:, 0:n_dim])
+            if minChi:
+                delta = -np.minimum(mems, 0.0)
+            else:
+                delta = np.maximum(-np.minimum(mems, 0.0), np.maximum(mems - 1.0, 0.0))
+            if extrema:
+                max_misfit = np.maximum(np.max(delta, axis=0), max_misfit)
+            else:
+                is_misfit = (delta > 0).astype(int)
+                n_misfits_chunk = np.sum(is_misfit, axis=0)
+                total_misfit_chunk = np.sum(is_misfit*delta, axis=0)
+                n_misfits += n_misfits_chunk
+                total_misfit += total_misfit_chunk
+
+    if extrema:
+        typical_misfit = max_misfit
+    else:
+        typical_misfit = np.zeros(n_states, dtype=float) - 1.  # default to perfect fit
+        gt_zero = n_misfits > 0
+        typical_misfit[gt_zero] = total_misfit[gt_zero] / n_misfits[gt_zero]
+
+    if per_state:
+        return -np.max(typical_misfit), -typical_misfit
+    else:
+        return -np.max(typical_misfit)
 
