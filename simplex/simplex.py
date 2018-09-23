@@ -1051,6 +1051,50 @@ def _membership_computer(vertices):
         return out
     return function
 
+# compute simple SSE/SST score
+def sse_sst_score(input_, vertices=None):
+    data = _source(input_)
+
+    if vertices is not None:
+        membership_computer = _membership_computer(vertices)
+        n_states = vertices.shape[0]
+        n_dim = vertices.shape[1]
+    else:
+        membership_computer = lambda x: x  # identity
+        n_states = data.dimension()
+        n_dim = data.dimension()
+
+    means = np.zeros(n_states, dtype=data.dtype)
+    counts = np.zeros(n_states, dtype=int)
+
+    # compute means
+    it = data.iterator(return_trajindex=False)
+    with it:
+        for chunk in it:
+            mems = membership_computer(chunk[:, 0:n_dim])
+            state = np.argmax(mems, axis=1)
+            means[state] += mems[state, :]
+            counts[state] += 1
+
+    nonzero = counts > 0
+    means[nonzero] = means[nonzero] / counts[nonzero]
+
+    sse = np.zeros(n_states, dtype=data.dtype)
+    sst = np.sum(np.var(means))
+
+    # compute errors
+    it = data.iterator(return_trajindex=False)
+    with it:
+        for chunk in it:
+            mems = membership_computer(chunk[:, 0:n_dim])
+            state = np.argmax(mems, axis=1)
+            max_mems = np.max(mems, axis=1)
+            sse[state] += (max_mems - means[state])**2
+
+    sse[nonzero] = sse[nonzero] / counts[nonzero]
+
+    return sse, sst
+
 
 def simplex_misfit(input_, vertices, minChi=True, extrema=False, per_state=False):
     r'''Compute score that measures the misfit of the memberships to the simplex-structure of the data.
